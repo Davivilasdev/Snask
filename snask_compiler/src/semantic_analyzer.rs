@@ -1,0 +1,488 @@
+use crate::ast::{Program, Stmt, StmtKind, Expr, ExprKind, VarDecl, BinaryOp, UnaryOp, LiteralValue, ConditionalStmt, LoopStmt, ListDecl, DictDecl, ListPush, DictSet};
+use crate::types::Type;
+use std::collections::HashMap;
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum SemanticSymbolKind {
+    Immutable,
+    Mutable,
+    Constant,
+    Function,
+    Parameter,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SemanticSymbol {
+    pub name: String,
+    pub symbol_type: Type,
+    pub kind: SemanticSymbolKind,
+}
+
+#[derive(Debug, Clone)]
+pub struct SemanticSymbolTable {
+    scopes: Vec<HashMap<String, SemanticSymbol>>,
+}
+
+impl SemanticSymbolTable {
+    pub fn new() -> Self {
+        let mut table = SemanticSymbolTable { scopes: Vec::new() };
+        table.enter_scope();
+        table
+    }
+
+    pub fn enter_scope(&mut self) {
+        self.scopes.push(HashMap::new());
+    }
+
+    pub fn exit_scope(&mut self) {
+        if self.scopes.len() > 1 {
+            self.scopes.pop();
+        }
+    }
+
+    pub fn define(&mut self, symbol: SemanticSymbol) -> bool {
+        let current_scope = self.scopes.last_mut().unwrap();
+        if current_scope.contains_key(&symbol.name) {
+            return false;
+        }
+        current_scope.insert(symbol.name.clone(), symbol);
+        true
+    }
+
+    pub fn lookup(&self, name: &str) -> Option<&SemanticSymbol> {
+        for scope in self.scopes.iter().rev() {
+            if let Some(symbol) = scope.get(name) {
+                return Some(symbol);
+            }
+        }
+        None
+    }
+}
+
+
+#[derive(Debug)]
+pub enum SemanticError {
+    VariableAlreadyDeclared(String),
+    VariableNotFound(String),
+    FunctionAlreadyDeclared(String),
+    FunctionNotFound(String),
+    TypeMismatch { expected: Type, found: Type },
+    InvalidOperation { op: String, type1: Type, type2: Option<Type> },
+    ImmutableAssignment(String),
+    ReturnOutsideFunction,
+    WrongNumberOfArguments { expected: usize, found: usize },
+    IndexAccessOnNonIndexable(Type),
+    InvalidIndexType(Type),
+    PropertyNotFound(String),
+    NotCallable(Type),
+}
+
+pub struct SemanticAnalyzer {
+    pub symbol_table: SemanticSymbolTable,
+    current_function_return_type: Option<Type>,
+    pub errors: Vec<SemanticError>,
+}
+
+impl SemanticAnalyzer {
+    pub fn new() -> Self {
+        SemanticAnalyzer {
+            symbol_table: SemanticSymbolTable::new(),
+            current_function_return_type: None,
+            errors: Vec::new(),
+        }
+    }
+
+    pub fn analyze(&mut self, program: &Program) {
+        for statement in program {
+            self.analyze_statement(statement);
+        }
+    }
+
+    fn analyze_statement(&mut self, statement: &Stmt) {
+        match &statement.kind {
+            StmtKind::VarDeclaration(decl) => self.analyze_var_decl(decl, SemanticSymbolKind::Immutable),
+            StmtKind::MutDeclaration(decl) => self.analyze_var_decl(&decl.to_var_decl(), SemanticSymbolKind::Mutable),
+            StmtKind::ConstDeclaration(decl) => self.analyze_var_decl(&decl.to_var_decl(), SemanticSymbolKind::Constant),
+            StmtKind::Input { name, var_type } => {
+                let symbol = SemanticSymbol {
+                    name: name.clone(),
+                    symbol_type: var_type.clone(),
+                    kind: SemanticSymbolKind::Mutable,
+                };
+                if !self.symbol_table.define(symbol) {
+                    self.errors.push(SemanticError::VariableAlreadyDeclared(name.clone()));
+                }
+            }
+            StmtKind::VarAssignment(var_set) => {
+                let expr_type = match self.type_check_expression(&var_set.value) {
+                    Ok(t) => t,
+                    Err(e) => {
+                        self.errors.push(e);
+                        return;
+                    }
+                };
+
+                if let Some(symbol) = self.symbol_table.lookup(&var_set.name) {
+                    if symbol.kind == SemanticSymbolKind::Constant || symbol.kind == SemanticSymbolKind::Immutable {
+                        self.errors.push(SemanticError::ImmutableAssignment(var_set.name.clone()));
+                    }
+                    if !self.is_compatible(&symbol.symbol_type, &expr_type) {
+                        self.errors.push(SemanticError::TypeMismatch {
+                            expected: symbol.symbol_type.clone(),
+                            found: expr_type,
+                        });
+                    }
+                } else {
+                    self.errors.push(SemanticError::VariableNotFound(var_set.name.clone()));
+                }
+            }
+            StmtKind::FuncDeclaration(func_decl) => {
+                let params_types: Vec<Type> = func_decl.params.iter().map(|p| p.1.clone()).collect();
+                let func_symbol = SemanticSymbol {
+                    name: func_decl.name.clone(),
+                    symbol_type: Type::Function(params_types, Box::new(func_decl.return_type.clone().unwrap_or(Type::Void))),
+                    kind: SemanticSymbolKind::Function,
+                };
+                if !self.symbol_table.define(func_symbol) {
+                    self.errors.push(SemanticError::FunctionAlreadyDeclared(func_decl.name.clone()));
+                    return;
+                }
+
+                self.symbol_table.enter_scope();
+                let prev_return_type = self.current_function_return_type.clone();
+                self.current_function_return_type = func_decl.return_type.clone();
+
+                for (param_name, param_type) in &func_decl.params {
+                    let param_symbol = SemanticSymbol {
+                        name: param_name.clone(),
+                        symbol_type: param_type.clone(),
+                        kind: SemanticSymbolKind::Parameter,
+                    };
+                    self.symbol_table.define(param_symbol);
+                }
+
+                for stmt in &func_decl.body {
+                    self.analyze_statement(stmt);
+                }
+
+                self.current_function_return_type = prev_return_type;
+                self.symbol_table.exit_scope();
+            }
+            StmtKind::Return(expr) => {
+                let return_type = match self.type_check_expression(expr) {
+                    Ok(t) => t,
+                    Err(e) => {
+                        self.errors.push(e);
+                        return;
+                    }
+                };
+
+                match &self.current_function_return_type {
+                    Some(expected_type) => {
+                        if !self.is_compatible(expected_type, &return_type) {
+                            self.errors.push(SemanticError::TypeMismatch {
+                                expected: expected_type.clone(),
+                                found: return_type,
+                            });
+                        }
+                    }
+                    None => self.errors.push(SemanticError::ReturnOutsideFunction),
+                }
+            }
+            StmtKind::Conditional(cond) => self.analyze_conditional(cond),
+            StmtKind::Loop(loop_stmt) => self.analyze_loop(loop_stmt),
+            StmtKind::ListDeclaration(decl) => {
+                let var_decl = VarDecl {
+                    name: decl.name.clone(),
+                    var_type: decl.var_type.clone(),
+                    value: decl.value.clone(),
+                };
+                self.analyze_var_decl(&var_decl, SemanticSymbolKind::Immutable);
+            }
+            StmtKind::DictDeclaration(decl) => {
+                let var_decl = VarDecl {
+                    name: decl.name.clone(),
+                    var_type: decl.var_type.clone(),
+                    value: decl.value.clone(),
+                };
+                self.analyze_var_decl(&var_decl, SemanticSymbolKind::Immutable);
+            }
+            StmtKind::ListPush(push) => {
+                if let Some(symbol) = self.symbol_table.lookup(&push.name) {
+                    if symbol.symbol_type != Type::List {
+                        self.errors.push(SemanticError::InvalidOperation {
+                            op: "list_push".to_string(),
+                            type1: symbol.symbol_type.clone(),
+                            type2: None,
+                        });
+                    }
+                    let _ = self.type_check_expression(&push.value);
+                } else {
+                    self.errors.push(SemanticError::VariableNotFound(push.name.clone()));
+                }
+            }
+            StmtKind::DictSet(set) => {
+                if let Some(symbol) = self.symbol_table.lookup(&set.name) {
+                    if symbol.symbol_type != Type::Dict {
+                        self.errors.push(SemanticError::InvalidOperation {
+                            op: "dict_set".to_string(),
+                            type1: symbol.symbol_type.clone(),
+                            type2: None,
+                        });
+                    }
+                    let _ = self.type_check_expression(&set.key);
+                    let _ = self.type_check_expression(&set.value);
+                } else {
+                    self.errors.push(SemanticError::VariableNotFound(set.name.clone()));
+                }
+            }
+            StmtKind::Expression(expr) | StmtKind::FuncCall(expr) => {
+                if let Err(e) = self.type_check_expression(expr) {
+                    self.errors.push(e);
+                }
+            }
+            StmtKind::Print(expressions) => {
+                for expr in expressions {
+                    if let Err(e) = self.type_check_expression(expr) {
+                        self.errors.push(e);
+                    }
+                }
+            }
+        }
+    }
+
+    fn analyze_var_decl(&mut self, decl: &VarDecl, kind: SemanticSymbolKind) {
+        let expr_type = match self.type_check_expression(&decl.value) {
+            Ok(t) => t,
+            Err(e) => {
+                self.errors.push(e);
+                return;
+            }
+        };
+
+        let final_type = if let Some(ref expected_type) = decl.var_type {
+            if !self.is_compatible(expected_type, &expr_type) {
+                self.errors.push(SemanticError::TypeMismatch {
+                    expected: expected_type.clone(),
+                    found: expr_type,
+                });
+            }
+            expected_type.clone()
+        } else {
+            expr_type
+        };
+
+        let symbol = SemanticSymbol {
+            name: decl.name.clone(),
+            symbol_type: final_type,
+            kind,
+        };
+
+        if !self.symbol_table.define(symbol) {
+            self.errors.push(SemanticError::VariableAlreadyDeclared(decl.name.clone()));
+        }
+    }
+
+    fn analyze_conditional(&mut self, cond: &ConditionalStmt) {
+        if let Err(e) = self.check_condition(&cond.if_block.condition) { self.errors.push(e); }
+        self.symbol_table.enter_scope();
+        for stmt in &cond.if_block.body { self.analyze_statement(stmt); }
+        self.symbol_table.exit_scope();
+
+        for elif in &cond.elif_blocks {
+            if let Err(e) = self.check_condition(&elif.condition) { self.errors.push(e); }
+            self.symbol_table.enter_scope();
+            for stmt in &elif.body { self.analyze_statement(stmt); }
+            self.symbol_table.exit_scope();
+        }
+
+        if let Some(else_body) = &cond.else_block {
+            self.symbol_table.enter_scope();
+            for stmt in else_body { self.analyze_statement(stmt); }
+            self.symbol_table.exit_scope();
+        }
+    }
+
+    fn analyze_loop(&mut self, loop_stmt: &LoopStmt) {
+        self.symbol_table.enter_scope();
+        match loop_stmt {
+            LoopStmt::While { condition, body } => {
+                if let Err(e) = self.check_condition(condition) { self.errors.push(e); }
+                for stmt in body { self.analyze_statement(stmt); }
+            }
+            LoopStmt::For { iterator, iterable, body } => {
+                let iterable_type = match self.type_check_expression(iterable) {
+                    Ok(t) => t,
+                    Err(e) => {
+                        self.errors.push(e);
+                        self.symbol_table.exit_scope();
+                        return;
+                    }
+                };
+
+                let iterator_type = match iterable_type {
+                    Type::List => Type::Any,
+                    Type::String => Type::String,
+                    _ => {
+                        self.errors.push(SemanticError::InvalidOperation {
+                            op: "for-in".to_string(),
+                            type1: iterable_type,
+                            type2: None,
+                        });
+                        Type::Void
+                    }
+                };
+
+                let symbol = SemanticSymbol {
+                    name: iterator.clone(),
+                    symbol_type: iterator_type,
+                    kind: SemanticSymbolKind::Immutable,
+                };
+                self.symbol_table.define(symbol);
+
+                for stmt in body { self.analyze_statement(stmt); }
+            }
+        }
+        self.symbol_table.exit_scope();
+    }
+
+    fn check_condition(&mut self, expr: &Expr) -> Result<(), SemanticError> {
+        let expr_type = self.type_check_expression(expr)?;
+        if expr_type != Type::Bool {
+            return Err(SemanticError::TypeMismatch {
+                expected: Type::Bool,
+                found: expr_type,
+            });
+        }
+        Ok(())
+    }
+
+    fn is_compatible(&self, expected: &Type, found: &Type) -> bool {
+        if expected == found { return true; }
+        if *expected == Type::Float && *found == Type::Int { return true; }
+        matches!((expected, found), (Type::Any, _))
+    }
+
+    fn type_check_expression(&mut self, expression: &Expr) -> Result<Type, SemanticError> {
+        match &expression.kind {
+            ExprKind::Variable(name) => {
+                if let Some(symbol) = self.symbol_table.lookup(name) {
+                    Ok(symbol.symbol_type.clone())
+                } else {
+                    Err(SemanticError::VariableNotFound(name.clone()))
+                }
+            }
+            ExprKind::Literal(value) => match value {
+                LiteralValue::Number(n) => if n.fract() == 0.0 { Ok(Type::Int) } else { Ok(Type::Float) },
+                LiteralValue::String(_) => Ok(Type::String),
+                LiteralValue::Boolean(_) => Ok(Type::Bool),
+                LiteralValue::List(_) => Ok(Type::List),
+                LiteralValue::Dict(_) => Ok(Type::Dict),
+            },
+            ExprKind::Binary { left, op, right } => {
+                let left_type = self.type_check_expression(left)?;
+                let right_type = self.type_check_expression(right)?;
+
+                match op {
+                    BinaryOp::Add => {
+                        if left_type.is_numeric() && right_type.is_numeric() {
+                            if left_type == Type::Float || right_type == Type::Float { Ok(Type::Float) } else { Ok(Type::Int) }
+                        } else if left_type == Type::String && right_type == Type::String {
+                            Ok(Type::String)
+                        } else {
+                            Err(SemanticError::InvalidOperation { op: format!("{:?}", op), type1: left_type, type2: Some(right_type) })
+                        }
+                    }
+                    BinaryOp::Subtract | BinaryOp::Multiply | BinaryOp::Divide => {
+                        if left_type.is_numeric() && right_type.is_numeric() {
+                            if left_type == Type::Float || right_type == Type::Float { Ok(Type::Float) } else { Ok(Type::Int) }
+                        } else {
+                            Err(SemanticError::InvalidOperation { op: format!("{:?}", op), type1: left_type, type2: Some(right_type) })
+                        }
+                    }
+                    BinaryOp::Equals | BinaryOp::NotEquals | BinaryOp::GreaterThan | BinaryOp::LessThan | BinaryOp::GreaterThanOrEquals | BinaryOp::LessThanOrEquals => {
+                        if self.is_compatible(&left_type, &right_type) || self.is_compatible(&right_type, &left_type) { Ok(Type::Bool) } else {
+                             Err(SemanticError::InvalidOperation { op: format!("{:?}", op), type1: left_type, type2: Some(right_type) })
+                        }
+                    }
+                }
+            }
+            ExprKind::Unary { op, expr } => {
+                let expr_type = self.type_check_expression(expr)?;
+                match op {
+                    UnaryOp::Negative => {
+                        if expr_type.is_numeric() { Ok(expr_type) } else {
+                            Err(SemanticError::InvalidOperation { op: "Negative".to_string(), type1: expr_type, type2: None })
+                        }
+                    }
+                }
+            }
+            ExprKind::FunctionCall { callee, args } => {
+                let callee_type = self.type_check_expression(callee)?;
+
+                if let Type::Function(param_types, return_type) = callee_type {
+                    if args.len() != param_types.len() {
+                        return Err(SemanticError::WrongNumberOfArguments { expected: param_types.len(), found: args.len() });
+                    }
+
+                    for (i, arg) in args.iter().enumerate() {
+                        let arg_type = self.type_check_expression(arg)?;
+                        if !self.is_compatible(&param_types[i], &arg_type) {
+                            return Err(SemanticError::TypeMismatch { expected: param_types[i].clone(), found: arg_type });
+                        }
+                    }
+                    Ok(*return_type.clone())
+                } else {
+                    Err(SemanticError::NotCallable(callee_type))
+                }
+            }
+            ExprKind::PropertyAccess { target, property } => {
+                let target_type = self.type_check_expression(target)?;
+
+                match target_type {
+                    Type::List => {
+                        if property == "push" {
+                            Ok(Type::Function(vec![Type::Any], Box::new(Type::Void)))
+                        } else {
+                            Err(SemanticError::PropertyNotFound(property.clone()))
+                        }
+                    }
+                    Type::Dict => {
+                        if property == "set" {
+                            Ok(Type::Function(vec![Type::Any, Type::Any], Box::new(Type::Void)))
+                        } else {
+                            Err(SemanticError::PropertyNotFound(property.clone()))
+                        }
+                    }
+                    _ => Err(SemanticError::IndexAccessOnNonIndexable(target_type)),
+                }
+            }
+            ExprKind::IndexAccess { target, index } => {
+                let target_type = self.type_check_expression(target)?;
+                let index_type = self.type_check_expression(index)?;
+
+                match target_type {
+                    Type::List => {
+                        if index_type != Type::Int {
+                            self.errors.push(SemanticError::InvalidIndexType(index_type));
+                        }
+                        Ok(Type::Any)
+                    }
+                    Type::Dict => {
+                        if !matches!(index_type, Type::String | Type::Int | Type::Float | Type::Bool) {
+                            self.errors.push(SemanticError::InvalidIndexType(index_type));
+                        }
+                        Ok(Type::Any)
+                    }
+                    Type::String => {
+                        if index_type != Type::Int {
+                            self.errors.push(SemanticError::InvalidIndexType(index_type));
+                        }
+                        Ok(Type::String)
+                    }
+                    _ => Err(SemanticError::IndexAccessOnNonIndexable(target_type)),
+                }
+            }
+        }
+    }
+}

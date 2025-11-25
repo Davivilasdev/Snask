@@ -1,0 +1,106 @@
+// SNASK — GRAMMAR FORTEMENTE TIPADA (ALTO NÍVEL)
+// Tipagem inteligente: inferência + unificação segura
+// Nada de baixo nível, nada de memória manual
+// Apenas o necessário para uma linguagem moderna, limpa e produtiva
+
+?start: stmt+
+
+// ===== DECLARAÇÕES =====
+?stmt: var_decl
+     | mut_decl
+     | var_set
+     | const_decl
+
+     | print_stmt
+     | input_stmt
+
+     | func_decl
+     | func_call
+     | return_stmt
+
+     | conditional_stmt
+     | loop_stmt
+
+     | list_decl
+     | list_push
+     | list_get
+
+     | dict_decl
+     | dict_set
+     | dict_get
+
+// ===== VARIÁVEIS =====
+var_decl: "let" NAME ":" type? "=" expr          // variáveis imutáveis
+mut_decl: "mut" NAME ":" type? "=" expr          // variáveis mutáveis
+var_set: NAME "=" expr                              // só permitido para mut
+const_decl: "const" NAME ":" type? "=" expr       // constante global
+
+// ===== ENTRADA/SAÍDA =====
+print_stmt: "print" "(" [expr ("," expr)*] ")"
+input_stmt: "input" NAME ":" type
+
+// ===== FUNÇÕES =====
+func_decl: "fun" NAME "(" [param_list] ")" block
+param_list: param ("," param)*
+param: NAME ":" type
+block: "{" stmt+ "}"
+func_call: NAME "(" [expr ("," expr)*] ")"
+return_stmt: "return" expr
+
+// ===== CONTROLE =====
+conditional_stmt: if_block elif_block* else_block?
+if_block: "if" expr block
+elif_block: "elif" expr block
+else_block: "else" block
+
+loop_stmt: loop_while | loop_for
+loop_while: "while" expr block
+loop_for: "for" NAME "in" expr block
+
+// ===== LISTAS =====
+list_decl: "list" NAME ":" type? "=" list_literal
+list_push: NAME ".push(" expr ")"
+list_get: NAME "[" expr "]"
+
+list_literal: "[" [expr ("," expr)*] "]"
+
+// ===== DICIONÁRIOS =====
+dict_decl: "dict" NAME ":" type? "=" dict_literal
+dict_set: NAME "[" expr "]" "=" expr
+dict_get: NAME "[" expr "]"
+
+dict_literal: "{" [expr ":" expr ("," expr ":" expr)*] "}"
+
+// ===== EXPRESSÕES =====
+?expr: expr "+" expr
+     | expr "-" expr
+     | expr "*" expr
+     | expr "/" expr
+
+     | expr "==" expr
+     | expr "!=" expr
+     | expr "<" expr
+     | expr ">" expr
+     | expr "<=" expr
+     | expr ">=" expr
+
+     | atom
+
+?atom: NUMBER
+     | ESCAPED_STRING
+     | NAME
+     | func_call
+     | list_get
+     | dict_get
+     | "(" expr ")"
+
+// ===== TIPOS =====
+type: "int" | "float" | "str" | "bool" | "list" | "dict" | "void"
+
+// ===== TOKENS =====
+%import common.CNAME -> NAME
+%import common.NUMBER
+%import common.ESCAPED_STRING
+
+%import common.WS
+%ignore WS

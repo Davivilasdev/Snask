@@ -1,0 +1,9 @@
+[package]
+name = "snask"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = { version = "1.0.104", features = ["derive"] }
+bincode = "1.2.0"
+clap = { version = "4.5.53", features = ["derive"] }

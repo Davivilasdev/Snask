@@ -1,0 +1,13 @@
+print("--- Input Test ---");
+
+print("What is your name?");
+input name: int;
+
+print("What is your age?");
+input age: float;
+
+print("Hello,", name, "! You are", age, "years old.");
+
+let next_age = age + 1;
+
+print("Next year, you will be", next_age, "years old.");
