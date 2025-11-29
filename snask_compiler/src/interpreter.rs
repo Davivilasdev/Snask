@@ -1,81 +1,20 @@
 use crate::ast::{Program, Stmt, StmtKind, Expr, ExprKind, LiteralValue, BinaryOp, UnaryOp, VarDecl, MutDecl, ConstDecl, VarSet, ConditionalStmt, LoopStmt, FuncDecl};
 use crate::symbol_table::{SymbolTable, Symbol};
 use crate::types::Type;
+use crate::value::Value;
 use std::collections::HashMap;
-use std::fmt;
-use std::hash::{Hash, Hasher};
 use std::io;
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum Value {
-    Number(f64),
-    String(String),
-    Boolean(bool),
-    List(Vec<Value>),
-    Dict(HashMap<Value, Value>),
-    Nil,
-    Function(FuncDecl),
-}
-
-impl Hash for Value {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        match self {
-            Value::Number(n) => {
-                if n.fract() == 0.0 {
-                    (*n as i64).hash(state);
-                } else {
-                    n.to_bits().hash(state);
-                }
-            },
-            Value::String(s) => s.hash(state),
-            Value::Boolean(b) => b.hash(state),
-            Value::List(_) => { "List".hash(state); },
-            Value::Dict(_) => { "Dict".hash(state); },
-            Value::Nil => "Nil".hash(state),
-            Value::Function(f) => f.name.hash(state),
-        }
-    }
-}
-
-impl fmt::Display for Value {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Value::Number(n) => write!(f, "{}", n),
-            Value::String(s) => write!(f, "{}", s),
-            Value::Boolean(b) => write!(f, "{}", b),
-            Value::List(list) => {
-                write!(f, "[")?;
-                for (i, item) in list.iter().enumerate() {
-                    write!(f, "{}", item)?;
-                    if i < list.len() - 1 {
-                        write!(f, ", ")?;
-                    }
-                }
-                write!(f, "]")
-            },
-            Value::Dict(dict) => {
-                write!(f, "{{")?;
-                let mut first = true;
-                for (key, val) in dict {
-                    if !first {
-                        write!(f, ", ")?;
-                    }
-                    write!(f, "{}: {}", key, val)?;
-                    first = false;
-                }
-                write!(f, "}}")
-            },
-            Value::Nil => write!(f, "nil"),
-            Value::Function(func) => write!(f, "<fun {}>", func.name),
-        }
-    }
-}
-
-impl Eq for Value {}
 
 pub enum InterpretResult {
     Ok,
-    RuntimeError,
+    RuntimeError(String),
+}
+
+// Internal control flow for the interpreter
+enum ControlFlow {
+    Continue,
+    Return(Value),
+    Error(String),
 }
 
 pub struct Interpreter {
@@ -89,17 +28,22 @@ impl Interpreter {
         }
     }
 
+    pub fn get_globals_mut(&mut self) -> &mut SymbolTable {
+        &mut self.globals
+    }
+
     pub fn interpret(&mut self, program: Program) -> InterpretResult {
         for statement in program {
-            if let Err(_) = self.interpret_statement(statement) {
-                // TODO: Print error with location
-                return InterpretResult::RuntimeError;
+            match self.execute_statement(statement) {
+                ControlFlow::Continue => continue,
+                ControlFlow::Return(_) => return InterpretResult::RuntimeError("Unexpected return statement at top level.".to_string()),
+                ControlFlow::Error(msg) => return InterpretResult::RuntimeError(msg),
             }
         }
         InterpretResult::Ok
     }
 
-    fn interpret_statement(&mut self, statement: Stmt) -> Result<(), String> {
+    fn execute_statement(&mut self, statement: Stmt) -> ControlFlow {
         match statement.kind {
             StmtKind::VarDeclaration(var_decl) => self.execute_var_declaration(var_decl),
             StmtKind::MutDeclaration(mut_decl) => self.execute_mut_declaration(mut_decl),
@@ -112,30 +56,47 @@ impl Interpreter {
             StmtKind::FuncDeclaration(func_decl) => self.execute_func_declaration(func_decl),
             StmtKind::Return(expr) => self.execute_return_statement(expr),
             StmtKind::FuncCall(expr) => {
-                self.evaluate_expression(expr)?;
-                Ok(())
+                match self.evaluate_expression(expr) {
+                    Ok(_) => ControlFlow::Continue,
+                    Err(e) => ControlFlow::Error(e),
+                }
             },
-            _ => Err(format!("Statement not yet implemented: {:?}", statement.kind)),
+            StmtKind::Import(path) => {
+                match crate::modules::load_module(&path) {
+                    Ok(module_program) => self.execute_block(module_program),
+                    Err(e) => ControlFlow::Error(e),
+                }
+            },
+            _ => ControlFlow::Error(format!("Statement not yet implemented: {:?}", statement.kind)),
         }
     }
 
-    fn execute_input_statement(&mut self, name: String, var_type: Type) -> Result<(), String> {
+    fn execute_input_statement(&mut self, name: String, var_type: Type) -> ControlFlow {
         let mut input = String::new();
         if io::stdin().read_line(&mut input).is_err() {
-            return Err("Não foi possível ler a entrada do console.".to_string());
+            return ControlFlow::Error("Não foi possível ler a entrada do console.".to_string());
         }
         let trimmed_input = input.trim();
 
         let value = match var_type {
             Type::String => Value::String(trimmed_input.to_string()),
-            Type::Float => trimmed_input.parse::<f64>().map(Value::Number).map_err(|_| format!("Entrada inválida. Esperado um número float, mas recebeu '{}'.", trimmed_input))?,
-            Type::Int => trimmed_input.parse::<i64>().map(|n| Value::Number(n as f64)).map_err(|_| format!("Entrada inválida. Esperado um número inteiro, mas recebeu '{}'.", trimmed_input))?,
-            Type::Bool => trimmed_input.parse::<bool>().map(Value::Boolean).map_err(|_| format!("Entrada inválida. Esperado 'true' ou 'false', mas recebeu '{}'.", trimmed_input))?,
-            _ => return Err(format!("Tipo de 'input' não suportado: {:?}", var_type)),
+            Type::Float => match trimmed_input.parse::<f64>() {
+                Ok(n) => Value::Number(n),
+                Err(_) => return ControlFlow::Error(format!("Entrada inválida. Esperado um número float, mas recebeu '{}'.", trimmed_input)),
+            },
+            Type::Int => match trimmed_input.parse::<i64>() {
+                Ok(n) => Value::Number(n as f64),
+                Err(_) => return ControlFlow::Error(format!("Entrada inválida. Esperado um número inteiro, mas recebeu '{}'.", trimmed_input)),
+            },
+            Type::Bool => match trimmed_input.parse::<bool>() {
+                Ok(b) => Value::Boolean(b),
+                Err(_) => return ControlFlow::Error(format!("Entrada inválida. Esperado 'true' ou 'false', mas recebeu '{}'.", trimmed_input)),
+            },
+            _ => return ControlFlow::Error(format!("Tipo de 'input' não suportado: {:?}", var_type)),
         };
 
         self.globals.define(name, value, true, true);
-        Ok(())
+        ControlFlow::Continue
     }
 
     fn evaluate_expression(&mut self, expression: Expr) -> Result<Value, String> {
@@ -146,7 +107,18 @@ impl Interpreter {
             ExprKind::Binary { op, left, right } => self.evaluate_binary_expression(op, *left, *right),
             ExprKind::FunctionCall { callee, args } => self.evaluate_function_call(*callee, args),
             ExprKind::IndexAccess { target, index } => self.evaluate_index_access(*target, *index),
-            ExprKind::PropertyAccess { .. } => Err("Property access must be part of a call".to_string()),
+            ExprKind::PropertyAccess { target, property } => {
+                let obj_val = self.evaluate_expression(*target)?;
+                match obj_val {
+                    Value::Dict(dict) => {
+                        let prop_key = Value::String(property.clone());
+                        dict.get(&prop_key)
+                            .cloned()
+                            .ok_or_else(|| format!("Propriedade '{}' não encontrada no objeto.", property))
+                    },
+                    _ => Err(format!("Tentativa de acessar propriedade '{}' em tipo não-objeto: {:?}", property, obj_val)),
+                }
+            }
         }
     }
 
@@ -213,49 +185,69 @@ impl Interpreter {
         }
     }
 
-    fn execute_var_declaration(&mut self, var_decl: VarDecl) -> Result<(), String> {
-        let value = self.evaluate_expression(var_decl.value)?;
-        self.globals.define(var_decl.name, value, false, true);
-        Ok(())
+    fn execute_var_declaration(&mut self, var_decl: VarDecl) -> ControlFlow {
+        match self.evaluate_expression(var_decl.value) {
+            Ok(value) => {
+                self.globals.define(var_decl.name, value, false, false);
+                ControlFlow::Continue
+            },
+            Err(e) => ControlFlow::Error(e),
+        }
     }
 
-    fn execute_mut_declaration(&mut self, mut_decl: MutDecl) -> Result<(), String> {
-        let value = self.evaluate_expression(mut_decl.value)?;
-        self.globals.define(mut_decl.name, value, true, true);
-        Ok(())
+    fn execute_mut_declaration(&mut self, mut_decl: MutDecl) -> ControlFlow {
+        match self.evaluate_expression(mut_decl.value) {
+            Ok(value) => {
+                self.globals.define(mut_decl.name, value, true, true);
+                ControlFlow::Continue
+            },
+            Err(e) => ControlFlow::Error(e),
+        }
     }
 
-    fn execute_const_declaration(&mut self, const_decl: ConstDecl) -> Result<(), String> {
-        let value = self.evaluate_expression(const_decl.value)?;
-        self.globals.define(const_decl.name, value, false, false);
-        Ok(())
+    fn execute_const_declaration(&mut self, const_decl: ConstDecl) -> ControlFlow {
+        match self.evaluate_expression(const_decl.value) {
+            Ok(value) => {
+                self.globals.define(const_decl.name, value, false, false);
+                ControlFlow::Continue
+            },
+            Err(e) => ControlFlow::Error(e),
+        }
     }
 
-    fn execute_var_assignment(&mut self, var_set: VarSet) -> Result<(), String> {
-        let value = self.evaluate_expression(var_set.value)?;
+    fn execute_var_assignment(&mut self, var_set: VarSet) -> ControlFlow {
+        let value = match self.evaluate_expression(var_set.value) {
+            Ok(v) => v,
+            Err(e) => return ControlFlow::Error(e),
+        };
+
         match self.globals.get_mut(&var_set.name) {
             Some(symbol) => {
                 if !symbol.is_reassignable {
-                    return Err(format!("Variável '{}' não pode ser reatribuída (é constante).", var_set.name));
+                    return ControlFlow::Error(format!("Variável '{}' não pode ser reatribuída (é constante).", var_set.name));
                 }
                 symbol.value = value;
-                Ok(())
+                ControlFlow::Continue
             },
-            None => Err(format!("Variável '{}' não encontrada para atribuição.", var_set.name)),
+            None => ControlFlow::Error(format!("Variável '{}' não encontrada para atribuição.", var_set.name)),
         }
     }
 
-    fn execute_print_statement(&mut self, expressions: Vec<Expr>) -> Result<(), String> {
+    fn execute_print_statement(&mut self, expressions: Vec<Expr>) -> ControlFlow {
         let mut output = String::new();
         for (i, expr) in expressions.iter().enumerate() {
-            let value = self.evaluate_expression(expr.clone())?;
-            output.push_str(&format!("{}", value));
-            if i < expressions.len() - 1 {
-                output.push_str(" ");
+            match self.evaluate_expression(expr.clone()) {
+                Ok(value) => {
+                    output.push_str(&format!("{}", value));
+                    if i < expressions.len() - 1 {
+                        output.push_str(" ");
+                    }
+                },
+                Err(e) => return ControlFlow::Error(e),
             }
         }
         println!("{}", output);
-        Ok(())
+        ControlFlow::Continue
     }
 
     fn evaluate_unary_expression(&mut self, op: UnaryOp, expr: Expr) -> Result<Value, String> {
@@ -336,137 +328,109 @@ impl Interpreter {
         }
     }
 
-    fn execute_conditional_statement(&mut self, conditional: ConditionalStmt) -> Result<(), String> {
-        if let Value::Boolean(true) = self.evaluate_expression(conditional.if_block.condition)? {
-            self.execute_block(conditional.if_block.body)?;
-            return Ok(());
+    fn execute_conditional_statement(&mut self, conditional: ConditionalStmt) -> ControlFlow {
+        match self.evaluate_expression(conditional.if_block.condition) {
+            Ok(Value::Boolean(true)) => return self.execute_block(conditional.if_block.body),
+            Ok(Value::Boolean(false)) => {},
+            Ok(_) => return ControlFlow::Error("Condição do 'if' deve ser booleana.".to_string()),
+            Err(e) => return ControlFlow::Error(e),
         }
 
         for block in conditional.elif_blocks {
-            if let Value::Boolean(true) = self.evaluate_expression(block.condition)? {
-                self.execute_block(block.body)?;
-                return Ok(());
+            match self.evaluate_expression(block.condition) {
+                Ok(Value::Boolean(true)) => return self.execute_block(block.body),
+                Ok(Value::Boolean(false)) => {},
+                Ok(_) => return ControlFlow::Error("Condição do 'elif' deve ser booleana.".to_string()),
+                Err(e) => return ControlFlow::Error(e),
             }
         }
 
         if let Some(else_body) = conditional.else_block {
-            self.execute_block(else_body)?;
+            return self.execute_block(else_body);
         }
 
-        Ok(())
+        ControlFlow::Continue
     }
 
-    fn execute_loop_statement(&mut self, loop_stmt: LoopStmt) -> Result<(), String> {
+    fn execute_loop_statement(&mut self, loop_stmt: LoopStmt) -> ControlFlow {
         match loop_stmt {
             LoopStmt::While { condition, body } => {
-                while let Value::Boolean(true) = self.evaluate_expression(condition.clone())? {
-                    self.globals.enter_scope();
-                    if let Err(e) = self.execute_block(body.clone()) {
-                        self.globals.exit_scope();
-                        return Err(e);
+                loop {
+                    match self.evaluate_expression(condition.clone()) {
+                        Ok(Value::Boolean(true)) => {
+                            self.globals.enter_scope();
+                            let result = self.execute_block(body.clone());
+                            self.globals.exit_scope();
+                            match result {
+                                ControlFlow::Continue => continue,
+                                ControlFlow::Return(val) => return ControlFlow::Return(val),
+                                ControlFlow::Error(e) => return ControlFlow::Error(e),
+                            }
+                        },
+                        Ok(Value::Boolean(false)) => break,
+                        Ok(_) => return ControlFlow::Error("Condição do 'while' deve ser booleana.".to_string()),
+                        Err(e) => return ControlFlow::Error(e),
                     }
-                    self.globals.exit_scope();
                 }
-                Ok(())
+                ControlFlow::Continue
             },
-            _ => Err(format!("Loop statement not yet implemented: {:?}", loop_stmt)),
+            _ => ControlFlow::Error(format!("Loop statement not yet implemented: {:?}", loop_stmt)),
         }
     }
 
-    fn execute_block(&mut self, statements: Program) -> Result<(), String> {
+    fn execute_block(&mut self, statements: Program) -> ControlFlow {
         for statement in statements {
-            self.interpret_statement(statement)?;
+            match self.execute_statement(statement) {
+                ControlFlow::Continue => continue,
+                ControlFlow::Return(val) => return ControlFlow::Return(val),
+                ControlFlow::Error(e) => return ControlFlow::Error(e),
+            }
         }
-        Ok(())
+        ControlFlow::Continue
     }
 
-    fn execute_func_declaration(&mut self, func_decl: FuncDecl) -> Result<(), String> {
+    fn execute_func_declaration(&mut self, func_decl: FuncDecl) -> ControlFlow {
         self.globals.define(func_decl.name.clone(), Value::Function(func_decl), false, false);
-        Ok(())
+        ControlFlow::Continue
     }
 
     fn evaluate_function_call(&mut self, callee: Expr, args: Vec<Expr>) -> Result<Value, String> {
-        if let ExprKind::PropertyAccess { target, property } = callee.kind {
-            let mut evaluated_args = Vec::new();
-            for arg_expr in args {
-                evaluated_args.push(self.evaluate_expression(arg_expr)?);
-            }
-
-            if let ExprKind::Variable(name) = target.kind {
-                let symbol = self.globals.get_mut(&name).ok_or_else(|| format!("Variável '{}' não encontrada.", name))?;
-
-                if let Value::List(list) = &mut symbol.value {
-                    return match property.as_str() {
-                        "push" => {
-                            if evaluated_args.len() != 1 {
-                                return Err(format!("Método 'push' espera 1 argumento, mas recebeu {}.", evaluated_args.len()));
-                            }
-                            list.push(evaluated_args[0].clone());
-                            Ok(Value::Nil)
-                        },
-                        _ => Err(format!("Método '{}' não encontrado para o tipo Lista.", property)),
-                    };
-                } else if let Value::Dict(dict) = &mut symbol.value {
-                    return match property.as_str() {
-                        "set" => {
-                            if evaluated_args.len() != 2 {
-                                return Err(format!("Método 'set' espera 2 argumentos, mas recebeu {}.", evaluated_args.len()));
-                            }
-                            let key = evaluated_args[0].clone();
-                            let value = evaluated_args[1].clone();
-                            dict.insert(key, value);
-                            Ok(Value::Nil)
-                        },
-                        _ => Err(format!("Método '{}' não encontrado para o tipo Dicionário.", property)),
-                    };
-                } else {
-                    return Err(format!("Não é possível chamar o método '{}' em um valor que não é uma lista ou dicionário.", property));
-                }
-            } else {
-                return Err("Alvos de método complexos (ex: `get_list().push()`) ainda não são suportados.".to_string());
-            }
-        }
-
         let func_val = self.evaluate_expression(callee)?;
-        if let Value::Function(func_decl) = func_val {
-            if args.len() != func_decl.params.len() {
-                return Err(format!("Número incorreto de argumentos para a função '{}'. Esperado {}, encontrado {}.", func_decl.name, func_decl.params.len(), args.len()));
-            }
-
-            self.globals.enter_scope();
-            for (i, (param_name, _param_type)) in func_decl.params.iter().enumerate() {
-                let arg_value = self.evaluate_expression(args[i].clone())?;
-                self.globals.define(param_name.clone(), arg_value, false, false);
-            }
-            let result = self.execute_block(func_decl.body.clone());
-            self.globals.exit_scope();
-
-            match result {
-                Ok(_) => Ok(Value::Nil),
-                Err(e) => {
-                    if e.starts_with("RETURN_VALUE:") {
-                        let return_val_str = e.strip_prefix("RETURN_VALUE:").unwrap();
-                        if let Ok(num) = return_val_str.parse::<f64>() {
-                            Ok(Value::Number(num))
-                        } else if let Ok(bool_val) = return_val_str.parse::<bool>() {
-                            Ok(Value::Boolean(bool_val))
-                        } else if return_val_str == "nil" {
-                            Ok(Value::Nil)
-                        } else {
-                            Ok(Value::String(return_val_str.to_string()))
-                        }
-                    } else {
-                        Err(e)
-                    }
+        match func_val {
+            Value::Function(func_decl) => {
+                if args.len() != func_decl.params.len() {
+                    return Err(format!("Número incorreto de argumentos para a função '{}'. Esperado {}, encontrado {}.", func_decl.name, func_decl.params.len(), args.len()));
                 }
-            }
-        } else {
-            Err(format!("Tentativa de chamar um valor não-invocável: {:?}", func_val))
+
+                self.globals.enter_scope();
+                for (i, (param_name, _param_type)) in func_decl.params.iter().enumerate() {
+                    let arg_value = self.evaluate_expression(args[i].clone())?;
+                    self.globals.define(param_name.clone(), arg_value, false, false);
+                }
+                let result = self.execute_block(func_decl.body.clone());
+                self.globals.exit_scope();
+
+                match result {
+                    ControlFlow::Return(val) => Ok(val),
+                    ControlFlow::Error(e) => Err(e),
+                    ControlFlow::Continue => Ok(Value::Nil), // Function finished without return
+                }
+            },
+            Value::NativeFunction(func) => {
+                let mut evaluated_args = Vec::new();
+                for arg in args {
+                    evaluated_args.push(self.evaluate_expression(arg)?);
+                }
+                func(evaluated_args)
+            },
+            _ => Err(format!("Tentativa de chamar um valor não-invocável: {:?}", func_val))
         }
     }
 
-    fn execute_return_statement(&mut self, expr: Expr) -> Result<(), String> {
-        let value = self.evaluate_expression(expr)?;
-        Err(format!("RETURN_VALUE:{}", value))
+    fn execute_return_statement(&mut self, expr: Expr) -> ControlFlow {
+        match self.evaluate_expression(expr) {
+            Ok(value) => ControlFlow::Return(value),
+            Err(e) => ControlFlow::Error(e),
+        }
     }
 }

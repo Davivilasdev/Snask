@@ -205,6 +205,7 @@ pub enum StmtKind {
     ListPush(ListPush),
     DictDeclaration(DictDecl),
     DictSet(DictSet),
+    Import(String),
 }
 
 pub type Program = Vec<Stmt>;

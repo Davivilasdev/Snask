@@ -1,13 +1,10 @@
-print("--- Input Test ---");
+// Primeiro, garantimos que o pacote 'utils' está instalado
+// O interpretador precisará ser executado com privilégios para criar o diretório de pacotes se ele não existir
+let io = import("io");
+io.create_dir("packages"); // Certifica-se que o diretório de pacotes existe
+snask.install_package("utils"); // Instala o pacote
 
-print("What is your name?");
-input name: int;
-
-print("What is your age?");
-input age: float;
-
-print("Hello,", name, "! You are", age, "years old.");
-
-let next_age = age + 1;
-
-print("Next year, you will be", next_age, "years old.");
+// Agora, importe e use o pacote
+let utils = import("utils");
+print("utils.is_empty([]) =", utils.is_empty([])); // Deve ser true
+print("utils.is_empty([1, 2]) =", utils.is_empty([1, 2])); // Deve ser false

@@ -1,188 +1,267 @@
-# Manual da Linguagem de Programação Snask
+# 🐍 Snask Programming Language
 
-Bem-vindo ao manual oficial da Snask, uma linguagem de script simples, dinâmica e interpretada.
+**Versão Atual: v0.2.0**
 
-## Visão Geral
+Bem-vindo ao **Snask**, uma linguagem de programação moderna, dinâmica e interpretada, projetada para ser simples, poderosa e com uma experiência de desenvolvimento incrível.
 
-Snask é projetada para ser fácil de aprender e usar. Ela suporta variáveis, tipos de dados primitivos, estruturas de dados como listas e dicionários, fluxo de controle condicional, laços e funções.
+---
 
-## Como Executar um Programa Snask
+## 🚀 Destaques da Versão v0.2.0
 
-Para executar um programa Snask, você precisa do interpretador `snask.exe`. Salve seu código em um arquivo com a extensão `.snask` (por exemplo, `meu_programa.snask`) e execute o seguinte comando no seu terminal, a partir do diretório `snask_compiler`:
+- **Biblioteca Padrão Completa**: Mais de **70 funções** nativas para matemática, strings, coleções, I/O, HTTP e JSON.
+- **REPL Interativo**: Um shell interativo profissional com histórico e comandos especiais.
+- **Diagnósticos Bonitos**: Mensagens de erro coloridas e explicativas, inspiradas em Rust e Elm.
+- **Sintaxe Moderna**: Tipagem opcional, funções de primeira classe e estruturas de dados ricas.
+
+---
+
+## 📦 Instalação e Uso
+
+### Pré-requisitos
+- Rust (para compilar o interpretador)
+
+### Compilando
 
 ```bash
-\.\\target\\debug\\snask.exe interpret meu_programa.snask
+cd snask_compiler
+cargo build --release
+```
+
+O executável será gerado em `target/release/snask.exe`.
+
+### Executando
+
+#### 1. REPL (Modo Interativo)
+Para experimentar o Snask rapidamente:
+
+```bash
+snask repl
+```
+
+#### 2. Interpretador (Executar Arquivos)
+Para rodar um arquivo `.snask`:
+
+```bash
+snask interpret meu_programa.snask
 ```
 
 ---
 
-## Referência da Linguagem
+## 📚 Sintaxe Básica
 
-### 1. Comentários
-
-Comentários são de linha única e começam com `//`. Tudo após `//` até o final da linha é ignorado pelo interpretador.
+### Variáveis
 
 ```snask
-// Isto é um comentário.
-let x = 10; // Isto também é um comentário.
+let nome = "Snask";      // Imutável
+mut contador = 0;        // Mutável
+const PI = 3.14159;      // Constante
 ```
 
-### 2. Variáveis e Tipos de Dados
+### Tipos de Dados
 
-#### Declaração de Variáveis
+- **float**: Números (inteiros e decimais). Ex: `42`, `3.14`
+- **str**: Textos. Ex: `"Olá"`
+- **bool**: Booleanos. Ex: `true`, `false`
+- **list**: Listas. Ex: `[1, 2, 3]`
+- **dict**: Dicionários. Ex: `{"a": 1, "b": 2}`
 
-Existem três maneiras de declarar variáveis:
-
--   `let`: Cria uma variável imutável (seu valor não pode ser reatribuído).
--   `mut`: Cria uma variável mutável (seu valor pode ser alterado).
--   `const`: Cria uma constante (seu valor não pode ser alterado e deve ser conhecido em tempo de compilação, embora no Snask atual funcione como `let`).
-
-```snask
-let message = "Olá";
-mut counter = 0;
-counter = 1; // Válido
-
-// message = "Tchau"; // Inválido, vai gerar um erro.
-```
-
-#### Tipos de Dados
-
-Snask suporta os seguintes tipos de dados, com anotações de tipo opcionais:
-
--   **float**: Números de ponto flutuante (e inteiros). Ex: `10`, `3.14`.
--   **str**: Sequências de caracteres. Ex: `"Olá, mundo!"`.
--   **bool**: Valores booleanos, `true` ou `false`.
--   **list**: Uma coleção ordenada de valores. Ex: `[1, "dois", true]`.
--   **dict**: Uma coleção de pares chave-valor. Ex: `{"nome": "Snask", "versao": 1.0}`.
-
-### 3. Entrada e Saída
-
-#### `print()`
-
-A função `print()` exibe valores no console. Ela pode aceitar múltiplos argumentos, que serão separados por espaços.
+### Controle de Fluxo
 
 ```snask
-print("A resposta é:", 42); // Saída: A resposta é: 42
-```
-
-#### `input`
-
-A declaração `input` lê uma linha de texto do console e a armazena em uma variável. A anotação de tipo é **obrigatória** e determina como a entrada será tratada.
-
-```snask
-print("Qual é o seu nome?");
-input name: str;
-
-print("Qual é a sua idade?");
-input age: float;
-
-print("Olá,", name, "! Você tem", age, "anos.");
-```
-
-### 4. Operadores
-
--   **Aritméticos**: `+`, `-`, `*`, `/`
--   **Comparação**: `==` (igual), `!=` (diferente), `<` (menor que), `>` (maior que), `<=` (menor ou igual), `>=` (maior ou igual)
-
-### 5. Controle de Fluxo
-
-#### `if / elif / else`
-
-Executa blocos de código condicionalmente.
-
-```snask
-let x = 10;
-if x > 0 {
-    print("x é positivo");
-} elif x < 0 {
-    print("x é negativo");
+if x > 10 {
+    print("Maior que 10");
+} elif x == 10 {
+    print("Igual a 10");
 } else {
-    print("x é zero");
+    print("Menor que 10");
 }
-```
 
-#### `while`
-
-Executa um bloco de código repetidamente enquanto uma condição for verdadeira.
-
-```snask
-mut i = 0;
-while i < 3 {
+while i < 5 {
     print(i);
     i = i + 1;
 }
-// Saída: 0 1 2
+
+for item in [1, 2, 3] {
+    print(item);
+}
 ```
 
-### 6. Funções
-
-Funções são declaradas com a palavra-chave `fun`. Anotações de tipo para parâmetros e valor de retorno são suportadas e recomendadas.
+### Funções
 
 ```snask
 fun somar(a: float, b: float): float {
     return a + b;
 }
 
-let resultado = somar(5, 3);
-print("5 + 3 =", resultado); // Saída: 5 + 3 = 8
+print(somar(10, 20)); // 30
 ```
-
-### 7. Estruturas de Dados
-
-#### Listas (Lists)
-
--   **Criação**: `let minha_lista = [10, 20, 30];`
--   **Acesso**: `minha_lista[0]` (retorna `10`)
--   **Métodos**:
-    -   `.push(valor)`: Adiciona um elemento ao final da lista.
-        ```snask
-        mut minha_lista = [1];
-        minha_lista.push(2);
-        print(minha_lista); // Saída: [1, 2]
-        ```
-
-#### Dicionários (Dicts)
-
--   **Criação**: `let meu_dict = {"chave1": "valor1", "outra_chave": 100};
--   **Acesso**: `meu_dict["chave1"]` (retorna `"valor1"`)
--   **Métodos**:
-    -   `.set(chave, valor)`: Adiciona ou atualiza um par chave-valor no dicionário.
-        ```snask
-        mut meu_dict = {"nome": "Snask"};
-        meu_dict.set("versao", 1.0);
-        print(meu_dict); // Saída: {nome: Snask, versao: 1.0}
-        ```
 
 ---
 
-## Exemplo Completo de Programa Snask
+## 🛠️ Biblioteca Padrão (Standard Library)
+
+O Snask v0.2.0 vem com uma biblioteca padrão rica e organizada em módulos.
+
+### 📐 Math (Matemática)
+Funções matemáticas essenciais.
+
+- `abs(n)`, `floor(n)`, `ceil(n)`, `round(n)`
+- `pow(base, exp)`, `sqrt(n)`
+- `sin(rad)`, `cos(rad)`, `tan(rad)`
+- `min(a, b...)`, `max(a, b...)`
+- Constantes: `PI`, `E`, `TAU`
+
+### 🔤 String (Texto)
+Manipulação de strings.
+
+- `len(s)`: Tamanho da string
+- `upper(s)`, `lower(s)`: Maiúsculas/Minúsculas
+- `trim(s)`: Remove espaços
+- `split(s, sep)`: Divide string em lista
+- `join(list, sep)`: Junta lista em string
+- `replace(s, old, new)`: Substitui texto
+- `contains(s, sub)`, `starts_with(s, sub)`
+- `format(template, args...)`: Interpolação básica
+
+### 📦 Collections (Coleções)
+Manipulação de listas e dicionários.
+
+- `range(n)`: Cria lista de 0 a n-1
+- `sort(list)`: Ordena lista
+- `reverse(list)`: Inverte lista
+- `unique(list)`: Remove duplicatas
+- `flatten(list)`: Achata listas aninhadas
+- `map`, `filter`, `reduce` (em desenvolvimento)
+
+### 📁 IO (Entrada/Saída)
+Operações de arquivo e sistema de arquivos.
+
+- `read_file(path)`: Lê arquivo para string
+- `write_file(path, content)`: Escreve string em arquivo
+- `append_file(path, content)`: Adiciona ao final
+- `exists(path)`: Verifica se existe
+- `delete(path)`: Remove arquivo
+- `read_dir(path)`: Lista diretório
+
+### 🌐 HTTP & JSON
+Conectividade e dados.
+
+- `http_get(url)`: Faz requisição GET
+- `http_post(url, body)`: Faz requisição POST
+- `json_parse(str)`: Converte JSON para objeto
+- `json_stringify(obj)`: Converte objeto para JSON
+
+### ⚙️ System
+Utilitários do sistema.
+
+- `time()`: Timestamp atual
+- `sleep(ms)`: Pausa execução
+- `exit(code)`: Encerra programa
+- `args()`: Argumentos de linha de comando
+- `platform()`: Sistema operacional (windows, linux...)
+
+---
+
+## 💻 Exemplo Completo
 
 ```snask
-// --- Demonstração da Calculadora Snask ---
-
-print("--- Calculadora Snask ---");
-
-// Definição de Funções
-fun somar(a: float, b: float): float {
-    return a + b;
-}
-
-fun dividir(a: float, b: float): float {
-    if b == 0 {
-        print("Erro: Divisão por zero!");
-        return 0;
+// Calculadora de Fatorial
+fun fatorial(n: float): float {
+    if n <= 1 {
+        return 1;
     }
-    return a / b;
+    return n * fatorial(n - 1);
 }
 
-// Operações Básicas
-let num1 = 20;
-let num2 = 5;
-print(num1, "/", num2, "=", dividir(num1, num2));
+print("Calculando fatoriais...");
+let numeros = range(1, 6); // [1, 2, 3, 4, 5]
 
-// Teste de Entrada do Usuário
-print("Digite um número para somar com 10:");
-input numero_usuario: float;
-let resultado_soma = somar(10, numero_usuario);
-print("10 +", numero_usuario, "=", resultado_soma);
+for n in numeros {
+    let fat = fatorial(n);
+    print("Fatorial de", n, "é", fat);
+}
+
+// Manipulação de Arquivos
+let resultado = "Resultado final: " + format("{}", fatorial(5));
+write_file("resultado.txt", resultado);
+print("Resultado salvo em resultado.txt");
+print(math::sqrt(16));  // 4
 ```
+
+---
+
+## 📦 Gerenciador de Pacotes
+
+Snask possui um gerenciador de pacotes **totalmente automático** que permite instalar módulos Rust da comunidade e estendê-los à biblioteca padrão.
+
+### Instalando Módulos
+
+```bash
+# Instalar um módulo do registro oficial
+snask install <nome_do_modulo>
+
+# Exemplo: instalar módulo adicional
+snask install advanced_math
+```
+
+### Processo Automático
+
+Quando você executa `snask install <modulo>`, o sistema automaticamente:
+
+1. ✅ **Download**: Baixa o módulo `.rs` do repositório [SnaskPackages](https://github.com/Davivilasdev/SnaskPackages)
+2. ✅ **Integração**: Salva em `src/stdlib/`
+3. ✅ **Declaração**: Adiciona `pub mod <modulo>;` em `src/stdlib.rs`
+4. ✅ **Registro**: Adiciona `<modulo>::create_module()` em `register_stdlib()`
+5. ✅ **Compilação**: Executa `cargo build --release` automaticamente
+
+**Tudo isso acontece com um único comando!** 🚀
+
+### Exemplo de Uso
+
+```bash
+# Instalar módulo
+$ snask install advanced_math
+
+📦 Baixando módulo Rust 'advanced_math' de https://...
+✓ Módulo 'advanced_math' baixado para src/stdlib/advanced_math.rs
+
+🔧 Integrando módulo automaticamente...
+✓ Módulo integrado em src/stdlib.rs
+
+🔨 Recompilando Snask...
+✓ Compilação concluída com sucesso!
+
+✅ INSTALAÇÃO COMPLETA!
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+O módulo 'advanced_math' está pronto para uso!
+As funções do módulo estão disponíveis globalmente em seus programas Snask.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+# Agora você pode usar imediatamente!
+$ snask repl
+> funcao_do_modulo(10);
+```
+
+### Repositório Oficial
+
+Módulos oficiais estão disponíveis em: [SnaskPackages](https://github.com/Davivilasdev/SnaskPackages)
+
+Cada módulo `.rs` deve exportar uma função `create_module()` que retorna um objeto com as funções do módulo.
+
+---
+
+## 🗺️ Roadmap
+
+O futuro do Snask é brilhante! Próximas funcionalidades planejadas:
+
+- [ ] **String Interpolation**: `print("Olá {nome}")`
+- [ ] **Pattern Matching**: `match x { ... }`
+- [ ] **Null Safety**: Tipos opcionais `int?`
+- [ ] **Formatter**: `snask fmt`
+- [ ] **Gerenciador de Pacotes**: `snask install`
+
+---
+
+## 📄 Licença
+
+Snask é open-source e distribuído sob a licença MIT. Divirta-se codando!

@@ -1,0 +1,12 @@
+// Teste de String Interpolation
+let nome = "Snask";
+let versao = 0.2;
+
+print("Bem-vindo ao {nome} v{versao}!");
+
+let a = 10;
+let b = 20;
+// print("A soma é {a + b}"); // Ainda não suportado, deve dar erro ou tratar como variável "a + b" (inválida)
+
+print("A variavel a é {a}");
+print("Escaping {{chaves}}");

@@ -1,6 +1,5 @@
 use std::collections::HashMap;
-// use crate::types::Type; // No longer needed directly here
-use crate::interpreter::Value; // Import the Value enum from the interpreter
+use crate::value::Value;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Symbol {
@@ -65,5 +64,9 @@ impl SymbolTable {
             }
         }
         None
+    }
+
+    pub fn define_native_function(&mut self, name: &str, func: fn(Vec<Value>) -> Result<Value, String>) {
+        self.define(name.to_string(), Value::NativeFunction(func), false, false);
     }
 }

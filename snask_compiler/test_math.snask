@@ -1,0 +1,5 @@
+fun main() {
+    print(math.sqrt(9)); // Deve imprimir 3
+    print(math.abs(-5)); // Deve imprimir 5
+    print(math.PI);      // Deve imprimir 3.14159...
+}

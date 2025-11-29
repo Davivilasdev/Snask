@@ -85,11 +85,97 @@ pub struct SemanticAnalyzer {
 
 impl SemanticAnalyzer {
     pub fn new() -> Self {
-        SemanticAnalyzer {
+        let mut analyzer = SemanticAnalyzer {
             symbol_table: SemanticSymbolTable::new(),
             current_function_return_type: None,
             errors: Vec::new(),
-        }
+        };
+        analyzer.register_stdlib();
+        analyzer
+    }
+
+    fn register_stdlib(&mut self) {
+        // Define o módulo 'math' como um objeto de tipo 'Any'.
+        // Isso é um atalho para evitar a necessidade de definir um tipo de dicionário complexo.
+        // O verificador de tipos permitirá qualquer acesso a propriedades em 'math'.
+        let math_symbol = SemanticSymbol {
+            name: "math".to_string(),
+            symbol_type: Type::Any,
+            kind: SemanticSymbolKind::Immutable,
+        };
+        self.symbol_table.define(math_symbol);
+
+        // String
+        self.define_builtin("len", vec![Type::String], Type::Float);
+        self.define_builtin("upper", vec![Type::String], Type::String);
+        self.define_builtin("lower", vec![Type::String], Type::String);
+        self.define_builtin("trim", vec![Type::String], Type::String);
+        self.define_builtin("split", vec![Type::String, Type::String], Type::List);
+        self.define_builtin("join", vec![Type::List, Type::String], Type::String);
+        self.define_builtin("replace", vec![Type::String, Type::String, Type::String], Type::String);
+        self.define_builtin("contains", vec![Type::String, Type::String], Type::Bool);
+        self.define_builtin("starts_with", vec![Type::String, Type::String], Type::Bool);
+        self.define_builtin("ends_with", vec![Type::String, Type::String], Type::Bool);
+        self.define_builtin("chars", vec![Type::String], Type::List);
+        self.define_builtin("substring", vec![Type::String, Type::Float, Type::Float], Type::String);
+        self.define_builtin("format", vec![Type::String, Type::Any], Type::String); // Basic support
+
+        // Collections
+        self.define_builtin("range", vec![Type::Float], Type::List); // Basic support
+        self.define_builtin("sort", vec![Type::List], Type::List);
+        self.define_builtin("reverse", vec![Type::List], Type::List);
+        self.define_builtin("unique", vec![Type::List], Type::List);
+        self.define_builtin("flatten", vec![Type::List], Type::List);
+        // TODO: map, filter, reduce (need function type support in args)
+
+        // IO
+        self.define_builtin("read_file", vec![Type::String], Type::String);
+        self.define_builtin("write_file", vec![Type::String, Type::String], Type::Void);
+        self.define_builtin("append_file", vec![Type::String, Type::String], Type::Void);
+        self.define_builtin("exists", vec![Type::String], Type::Bool);
+        self.define_builtin("delete", vec![Type::String], Type::Void);
+        self.define_builtin("read_dir", vec![Type::String], Type::List);
+        self.define_builtin("is_file", vec![Type::String], Type::Bool);
+        self.define_builtin("is_dir", vec![Type::String], Type::Bool);
+        self.define_builtin("create_dir", vec![Type::String], Type::Void);
+
+        // HTTP
+        self.define_builtin("http_get", vec![Type::String], Type::Dict);
+        self.define_builtin("http_post", vec![Type::String, Type::String], Type::Void);
+
+        // JSON
+        self.define_builtin("json_parse", vec![Type::String], Type::Any);
+        self.define_builtin("json_stringify", vec![Type::Any], Type::String);
+        self.define_builtin("json_stringify_pretty", vec![Type::Any], Type::String);
+
+        // System
+        self.define_builtin("time", vec![], Type::Float);
+        self.define_builtin("sleep", vec![Type::Float], Type::Void);
+        self.define_builtin("exit", vec![Type::Float], Type::Void);
+        self.define_builtin("args", vec![], Type::List);
+        self.define_builtin("env", vec![Type::String], Type::String);
+        self.define_builtin("set_env", vec![Type::String, Type::String], Type::Void);
+        self.define_builtin("cwd", vec![], Type::String);
+        self.define_builtin("platform", vec![], Type::String);
+        self.define_builtin("arch", vec![], Type::String);
+    }
+
+    fn define_builtin(&mut self, name: &str, params: Vec<Type>, return_type: Type) {
+        let symbol = SemanticSymbol {
+            name: name.to_string(),
+            symbol_type: Type::Function(params, Box::new(return_type)),
+            kind: SemanticSymbolKind::Function,
+        };
+        self.symbol_table.define(symbol);
+    }
+
+    fn define_constant(&mut self, name: &str, const_type: Type) {
+        let symbol = SemanticSymbol {
+            name: name.to_string(),
+            symbol_type: const_type,
+            kind: SemanticSymbolKind::Constant,
+        };
+        self.symbol_table.define(symbol);
     }
 
     pub fn analyze(&mut self, program: &Program) {
@@ -248,6 +334,10 @@ impl SemanticAnalyzer {
                     }
                 }
             }
+            StmtKind::Import(_path) => {
+                // Import statements are handled at runtime
+                // No semantic analysis needed here
+            }
         }
     }
 
@@ -385,7 +475,9 @@ impl SemanticAnalyzer {
 
                 match op {
                     BinaryOp::Add => {
-                        if left_type.is_numeric() && right_type.is_numeric() {
+                        if left_type == Type::Any || right_type == Type::Any {
+                            Ok(Type::Any)
+                        } else if left_type.is_numeric() && right_type.is_numeric() {
                             if left_type == Type::Float || right_type == Type::Float { Ok(Type::Float) } else { Ok(Type::Int) }
                         } else if left_type == Type::String && right_type == Type::String {
                             Ok(Type::String)
@@ -394,7 +486,9 @@ impl SemanticAnalyzer {
                         }
                     }
                     BinaryOp::Subtract | BinaryOp::Multiply | BinaryOp::Divide => {
-                        if left_type.is_numeric() && right_type.is_numeric() {
+                        if left_type == Type::Any || right_type == Type::Any {
+                            Ok(Type::Any)
+                        } else if left_type.is_numeric() && right_type.is_numeric() {
                             if left_type == Type::Float || right_type == Type::Float { Ok(Type::Float) } else { Ok(Type::Int) }
                         } else {
                             Err(SemanticError::InvalidOperation { op: format!("{:?}", op), type1: left_type, type2: Some(right_type) })
@@ -432,6 +526,13 @@ impl SemanticAnalyzer {
                         }
                     }
                     Ok(*return_type.clone())
+                } else if callee_type == Type::Any {
+                    // Se o tipo do callee é 'Any', não podemos verificar os argumentos.
+                    // Apenas assumimos que a chamada é válida e retorna 'Any'.
+                    for arg in args {
+                        let _ = self.type_check_expression(arg)?;
+                    }
+                    Ok(Type::Any)
                 } else {
                     Err(SemanticError::NotCallable(callee_type))
                 }
@@ -440,6 +541,7 @@ impl SemanticAnalyzer {
                 let target_type = self.type_check_expression(target)?;
 
                 match target_type {
+                    Type::Any => Ok(Type::Any), // Permite acesso a propriedades em 'Any'
                     Type::List => {
                         if property == "push" {
                             Ok(Type::Function(vec![Type::Any], Box::new(Type::Void)))

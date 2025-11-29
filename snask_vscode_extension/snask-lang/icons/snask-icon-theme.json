@@ -1,0 +1,13 @@
+{
+    "iconDefinitions": {
+        "snask": {
+            "iconPath": "./icons/snasklogo.png"
+        }
+    },
+    "fileExtensions": {
+        "snask": "snask"
+    },
+    "fileNames": {
+        "Snaskfile": "snask"
+    }
+}

@@ -1,18 +1,25 @@
-mod ast;
-mod symbol_table;
-mod semantic_analyzer;
-mod types;
-mod parser; // New module for our manual parser
-mod interpreter; // New module for the AST interpreter
+pub mod ast;
+pub mod value;
+pub mod symbol_table;
+pub mod semantic_analyzer;
+pub mod types;
+pub mod parser;
+pub mod interpreter;
+pub mod modules;
+pub mod stdlib;
+pub mod span;
+pub mod diagnostics;
+pub mod repl;
+pub mod packages; // Módulo para o gerenciador de pacotes
+
 
 use std::fs;
 
-use semantic_analyzer::{SemanticAnalyzer};
-use parser::{parse_program};
-use interpreter::{Interpreter, InterpretResult}; // Use the new interpreter
-
-// --- CLI Dependencies ---
 use clap::{Parser as ClapParser, Subcommand};
+use interpreter::{Interpreter, InterpretResult};
+use parser::parse_program;
+use semantic_analyzer::SemanticAnalyzer;
+use stdlib::register_stdlib;
 
 #[derive(ClapParser)]
 #[command(author, version, about, long_about = None)]
@@ -25,9 +32,12 @@ struct Cli {
 enum Commands {
     /// Interprets a .snask file directly from its AST
     Interpret { file: String },
+    /// Starts the interactive REPL
+    Repl,
+    /// Installs a package from the official Snask package registry
+    Install { name: String },
 }
 
-// --- MAIN ---
 fn main() {
     let cli = Cli::parse();
 
@@ -42,6 +52,15 @@ fn main() {
                 Err(e) => eprintln!("Erro durante a execução: {}", e),
             }
         }
+        Commands::Repl => {
+            let mut repl = repl::Repl::new();
+            repl.run();
+        }
+        Commands::Install { name } => {
+            if let Err(e) = packages::install_package(name) {
+                eprintln!("Erro ao instalar pacote: {}", e);
+            }
+        }
     }
 }
 
@@ -49,11 +68,14 @@ fn interpret_file(file_path: &str) -> Result<(), String> {
     let source = fs::read_to_string(file_path)
         .map_err(|e| format!("Não foi possível ler o arquivo {}: {}", file_path, e))?;
 
-    // 2. Parsing (Using our manual parser)
-    let program: ast::Program = parse_program(&source)
-        .map_err(|e| format!("Erro de parsing: {}", e))?;
-    
-    // 3. Análise Semântica
+    let program = match parse_program(&source) {
+        Ok(p) => p,
+        Err(e) => {
+            let diagnostic = convert_parser_error(&e);
+            return Err(diagnostic.render(file_path, &source));
+        }
+    };
+
     let mut analyzer = SemanticAnalyzer::new();
     analyzer.analyze(&program);
 
@@ -65,10 +87,38 @@ fn interpret_file(file_path: &str) -> Result<(), String> {
         return Err(error_msg);
     }
 
-    // 4. Interpretação da AST
     let mut interpreter = Interpreter::new();
+    register_stdlib(interpreter.get_globals_mut());
     match interpreter.interpret(program) {
         InterpretResult::Ok => Ok(()),
-        InterpretResult::RuntimeError => Err(String::from("Erro de execução do interpretador.")),
+        InterpretResult::RuntimeError(msg) => Err(format!("Erro de execução: {}", msg)),
     }
+}
+
+fn convert_parser_error(error_msg: &str) -> diagnostics::Diagnostic {
+    use diagnostics::{Diagnostic, Annotation};
+    use span::{Span, Position};
+
+    if let Some(idx) = error_msg.rfind("na linha ") {
+        let suffix = &error_msg[idx..];
+        let parts: Vec<&str> = suffix.split_whitespace().collect();
+        
+        if parts.len() >= 4 {
+            let line_str = parts[2].trim_matches(',');
+            let col_str = parts[4];
+            
+            if let (Ok(line), Ok(col)) = (line_str.parse::<usize>(), col_str.parse::<usize>()) {
+                let pos = Position::new(line, col, 0);
+                let span = Span::new(pos, pos);
+                
+                let clean_msg = error_msg[..idx].trim().to_string();
+                
+                return Diagnostic::error(clean_msg)
+                    .with_code("P001".to_string())
+                    .with_annotation(Annotation::primary(span, "erro aqui".to_string()));
+            }
+        }
+    }
+
+    Diagnostic::error(error_msg.to_string())
 }

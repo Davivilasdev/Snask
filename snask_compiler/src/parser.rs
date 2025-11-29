@@ -27,6 +27,7 @@ pub enum Token {
     In(Location),
     List(Location),
     Dict(Location),
+    Import(Location),
     True(Location),
     False(Location),
 
@@ -82,6 +83,7 @@ impl Token {
             Token::In(loc) |
             Token::List(loc) |
             Token::Dict(loc) |
+            Token::Import(loc) |
             Token::True(loc) |
             Token::False(loc) |
             Token::Identifier(_, loc) |
@@ -109,6 +111,54 @@ impl Token {
             Token::Colon(loc) |
             Token::Semicolon(loc) |
             Token::Eof(loc) => loc,
+        }
+    }
+
+    pub fn friendly_name(&self) -> String {
+        match self {
+            Token::Let(_) => "'let'".to_string(),
+            Token::Mut(_) => "'mut'".to_string(),
+            Token::Const(_) => "'const'".to_string(),
+            Token::Print(_) => "'print'".to_string(),
+            Token::Input(_) => "'input'".to_string(),
+            Token::Fun(_) => "'fun'".to_string(),
+            Token::Return(_) => "'return'".to_string(),
+            Token::If(_) => "'if'".to_string(),
+            Token::Elif(_) => "'elif'".to_string(),
+            Token::Else(_) => "'else'".to_string(),
+            Token::While(_) => "'while'".to_string(),
+            Token::For(_) => "'for'".to_string(),
+            Token::In(_) => "'in'".to_string(),
+            Token::List(_) => "'list'".to_string(),
+            Token::Dict(_) => "'dict'".to_string(),
+            Token::Import(_) => "'import'".to_string(),
+            Token::True(_) => "'true'".to_string(),
+            Token::False(_) => "'false'".to_string(),
+            Token::Identifier(name, _) => format!("identificador '{}'", name),
+            Token::Number(n, _) => format!("número '{}'", n),
+            Token::String(s, _) => format!("string \"{}\"", s),
+            Token::Plus(_) => "'+'".to_string(),
+            Token::Minus(_) => "'-'".to_string(),
+            Token::Star(_) => "'*'".to_string(),
+            Token::Slash(_) => "'/'".to_string(),
+            Token::Equal(_) => "'='".to_string(),
+            Token::EqualEqual(_) => "'=='".to_string(),
+            Token::BangEqual(_) => "'!='".to_string(),
+            Token::Less(_) => "'<'".to_string(),
+            Token::LessEqual(_) => "'<='".to_string(),
+            Token::Greater(_) => "'>'".to_string(),
+            Token::GreaterEqual(_) => "'>='".to_string(),
+            Token::LeftParen(_) => "'('".to_string(),
+            Token::RightParen(_) => "')'".to_string(),
+            Token::LeftBrace(_) => "'{'".to_string(),
+            Token::RightBrace(_) => "'}'".to_string(),
+            Token::LeftBracket(_) => "'['".to_string(),
+            Token::RightBracket(_) => "']'".to_string(),
+            Token::Comma(_) => "','".to_string(),
+            Token::Dot(_) => "'.'".to_string(),
+            Token::Colon(_) => "':'".to_string(),
+            Token::Semicolon(_) => "';'".to_string(),
+            Token::Eof(_) => "fim de arquivo".to_string(),
         }
     }
 }
@@ -210,7 +260,7 @@ impl<'a> Tokenizer<'a> {
                     if self.match_char('=') {
                         Token::BangEqual(loc)
                     } else {
-                        return Err(format!("Unexpected character: {} at line {}, column {}", ch, loc.line, loc.column));
+                        return Err(format!("Caractere inesperado: {} na linha {}, coluna {}", ch, loc.line, loc.column));
                     }
                 }
                 '<' => {
@@ -229,7 +279,7 @@ impl<'a> Tokenizer<'a> {
                 }
                 '"' => self.read_string(loc),
                 _ => return Err(format!(
-                    "Unexpected character: {} at line {}, column {}",
+                    "Caractere inesperado: {} na linha {}, coluna {}",
                     ch, loc.line, loc.column
                 )),
             }
@@ -273,6 +323,7 @@ impl<'a> Tokenizer<'a> {
             "in" => Token::In(loc),
             "list" => Token::List(loc),
             "dict" => Token::Dict(loc),
+            "import" => Token::Import(loc),
             "true" => Token::True(loc),
             "false" => Token::False(loc),
             _ => Token::Identifier(ident, loc),
@@ -338,6 +389,17 @@ impl<'a> Parser<'a> {
         })
     }
 
+    pub fn debug_tokens(input: &'a str) {
+        let mut tokenizer = Tokenizer::new(input);
+        loop {
+            match tokenizer.next_token() {
+                Ok(Token::Eof(_)) => break,
+                Ok(token) => println!("{:?}", token),
+                Err(e) => println!("Token Error: {}", e),
+            }
+        }
+    }
+
     fn consume_token(&mut self, expected_variant: &Token) -> Result<Token, String> {
         if std::mem::discriminant(&self.current_token) == std::mem::discriminant(expected_variant) {
             let consumed_token = self.current_token.clone();
@@ -347,8 +409,11 @@ impl<'a> Parser<'a> {
         } else {
             let found_loc = self.current_token.get_location().clone();
             Err(format!(
-                "Expected token {:?}, but found {:?} at line {}, column {}",
-                expected_variant, self.current_token, found_loc.line, found_loc.column
+                "Esperado {}, mas encontrado {} na linha {}, coluna {}",
+                expected_variant.friendly_name(), 
+                self.current_token.friendly_name(), 
+                found_loc.line, 
+                found_loc.column
             ))
         }
     }
@@ -358,7 +423,7 @@ impl<'a> Parser<'a> {
             Token::Identifier(s, loc) => (s, loc),
             _ => {
                 let found_loc = self.current_token.get_location().clone();
-                return Err(format!("Expected identifier, but found {:?} at line {}, column {}", self.current_token, found_loc.line, found_loc.column));
+                return Err(format!("Esperado identificador, mas encontrado {} na linha {}, coluna {}", self.current_token.friendly_name(), found_loc.line, found_loc.column));
             }
         };
         // This was the bug: it was consuming directly from tokenizer,
@@ -379,6 +444,82 @@ impl<'a> Parser<'a> {
             program.push(self.parse_statement()?);
         }
         Ok(program)
+    }
+
+    fn desugar_interpolation(&self, s: &str, loc: Location) -> Result<Expr, String> {
+        let mut template = String::new();
+        let mut args = Vec::new();
+        let mut chars = s.chars().peekable();
+        
+        while let Some(c) = chars.next() {
+            if c == '{' {
+                if let Some(&next) = chars.peek() {
+                    if next == '{' {
+                        chars.next();
+                        template.push('{');
+                        continue;
+                    }
+                }
+                
+                let mut var_name = String::new();
+                let mut closed = false;
+                
+                while let Some(vc) = chars.next() {
+                    if vc == '}' {
+                        closed = true;
+                        break;
+                    }
+                    var_name.push(vc);
+                }
+                
+                if !closed {
+                    return Err(format!("String interpolada não fechada na linha {}, coluna {}", loc.line, loc.column));
+                }
+                
+                var_name = var_name.trim().to_string();
+                
+                if var_name.is_empty() {
+                    return Err(format!("Interpolação vazia '{{}}' não permitida na linha {}, coluna {}", loc.line, loc.column));
+                }
+                
+                template.push_str("{}");
+                
+                args.push(crate::ast::Expr {
+                    kind: crate::ast::ExprKind::Variable(var_name),
+                    loc: loc.clone(),
+                });
+                
+            } else if c == '}' {
+                if let Some(&next) = chars.peek() {
+                    if next == '}' {
+                        chars.next();
+                        template.push('}');
+                        continue;
+                    }
+                }
+                return Err(format!("'}}' solto em string interpolada na linha {}, coluna {}", loc.line, loc.column));
+            } else {
+                template.push(c);
+            }
+        }
+        
+        let mut call_args = Vec::new();
+        call_args.push(crate::ast::Expr {
+            kind: crate::ast::ExprKind::Literal(crate::ast::LiteralValue::String(template)),
+            loc: loc.clone(),
+        });
+        call_args.append(&mut args);
+        
+        Ok(crate::ast::Expr {
+            kind: crate::ast::ExprKind::FunctionCall {
+                callee: Box::new(crate::ast::Expr {
+                    kind: crate::ast::ExprKind::Variable("format".to_string()),
+                    loc: loc.clone(),
+                }),
+                args: call_args,
+            },
+            loc,
+        })
     }
 
     fn parse_assignment_statement(&mut self) -> Result<Stmt, String> {
@@ -418,6 +559,7 @@ impl<'a> Parser<'a> {
             Token::For(_) => self.parse_for_statement(),
             Token::Fun(_) => self.parse_fun_declaration(),
             Token::Return(_) => self.parse_return_statement(),
+            Token::Import(_) => self.parse_import_statement(),
             _ => {
                 let loc = self.current_token.get_location().clone();
                 let expr = self.parse_expression(Precedence::Assignment)?;
@@ -436,10 +578,26 @@ impl<'a> Parser<'a> {
         let loc = self.consume_token(&Token::Input(Location{line:0, column:0}))?.get_location().clone();
         let (name, _) = self.consume_identifier()?;
         let var_type = self.parse_type_annotation()?
-            .ok_or_else(|| "Expected type annotation (e.g., ': str') after variable name for 'input' statement.".to_string())?;
+            .ok_or_else(|| "Esperado anotação de tipo (ex: ': str') após nome da variável para comando 'input'.".to_string())?;
         self.consume_token(&Token::Semicolon(Location{line:0, column:0}))?;
         Ok(Stmt {
             kind: StmtKind::Input { name, var_type },
+            loc,
+        })
+    }
+
+    fn parse_import_statement(&mut self) -> Result<Stmt, String> {
+        let loc = self.consume_token(&Token::Import(Location{line:0, column:0}))?.get_location().clone();
+        let path = match self.current_token.clone() {
+            Token::String(s, _) => {
+                self.consume_token(&Token::String("".to_string(), Location{line:0, column:0}))?;
+                s
+            },
+            _ => return Err(format!("Esperado string literal após 'import', encontrado {}", self.current_token.friendly_name())),
+        };
+        self.consume_token(&Token::Semicolon(Location{line:0, column:0}))?;
+        Ok(Stmt {
+            kind: StmtKind::Import(path),
             loc,
         })
     }
@@ -546,7 +704,7 @@ impl<'a> Parser<'a> {
         if matches!(self.current_token, Token::Colon(_)) {
             self.consume_token(&Token::Colon(Location{line:0, column:0}))?;
             let (type_name, _) = self.consume_identifier()?;
-            let var_type = Type::from_str(&type_name).map_err(|_| format!("Unknown type: {}", type_name))?;
+            let var_type = Type::from_str(&type_name).map_err(|_| format!("Tipo desconhecido: {}", type_name))?;
             Ok(Some(var_type))
         } else {
             Ok(None)
@@ -652,7 +810,7 @@ impl<'a> Parser<'a> {
             Token::LessEqual(_) => Ok(BinaryOp::LessThanOrEquals),
             Token::Greater(_) => Ok(BinaryOp::GreaterThan),
             Token::GreaterEqual(_) => Ok(BinaryOp::GreaterThanOrEquals),
-            _ => Err("Invalid binary operator".to_string()),
+            _ => Err("Operador binário inválido".to_string()),
         }
     }
 
@@ -668,6 +826,7 @@ impl<'a> Parser<'a> {
             }
             Token::String(s, _) => {
                 self.consume_token(&Token::String("".to_string(), loc.clone()))?;
+                
                 Ok(Expr {
                     kind: ExprKind::Literal(LiteralValue::String(s)),
                     loc,
@@ -711,8 +870,8 @@ impl<'a> Parser<'a> {
             Token::LeftBracket(_) => self.parse_list_literal(),
             Token::LeftBrace(_) => self.parse_dict_literal(),
             _ => Err(format!(
-                "Expected expression, but found {:?} at line {}, column {}",
-                self.current_token, loc.line, loc.column
+                "Esperada expressão, mas encontrado {} na linha {}, coluna {}",
+                self.current_token.friendly_name(), loc.line, loc.column
             )),
         }
     }
@@ -763,7 +922,7 @@ impl<'a> Parser<'a> {
                     })
                 }
             }
-            _ => Err(format!("Unexpected token in infix expression: {:?} at line {}, column {}", self.current_token, loc.line, loc.column)),
+            _ => Err(format!("Token inesperado em expressão: {} na linha {}, coluna {}", self.current_token.friendly_name(), loc.line, loc.column)),
         }
     }
     
