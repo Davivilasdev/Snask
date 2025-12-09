@@ -17,19 +17,50 @@ enum ControlFlow {
     Error(String),
 }
 
+#[derive(Clone)]
 pub struct Interpreter {
     globals: SymbolTable,
 }
 
 impl Interpreter {
     pub fn new() -> Self {
-        Interpreter {
+        let mut interpreter = Interpreter {
             globals: SymbolTable::new(),
-        }
+        };
+        crate::stdlib::register_stdlib(&mut interpreter.globals);
+        interpreter
     }
 
     pub fn get_globals_mut(&mut self) -> &mut SymbolTable {
         &mut self.globals
+    }
+
+    /// Chama uma função diretamente por Value, útil para chamadas de runtime
+    pub fn call_function_by_value(&mut self, func_val: Value, args: Vec<Value>) -> Result<Value, String> {
+        match func_val {
+            Value::Function(func_decl) => {
+                if args.len() != func_decl.params.len() {
+                    return Err(format!("Número incorreto de argumentos para a função '{}'. Esperado {}, encontrado {}.", func_decl.name, func_decl.params.len(), args.len()));
+                }
+
+                self.globals.enter_scope();
+                for (i, (param_name, _param_type)) in func_decl.params.iter().enumerate() {
+                    self.globals.define(param_name.clone(), args[i].clone(), false, false);
+                }
+                let result = self.execute_block(func_decl.body.clone());
+                self.globals.exit_scope();
+
+                match result {
+                    ControlFlow::Return(val) => Ok(val),
+                    ControlFlow::Error(e) => Err(e),
+                    ControlFlow::Continue => Ok(Value::Nil), // Function finished without return
+                }
+            },
+            Value::NativeFunction(func) => {
+                func(args, self)
+            },
+            _ => Err(format!("Tentativa de chamar um valor não-invocável: {:?}", func_val))
+        }
     }
 
     pub fn interpret(&mut self, program: Program) -> InterpretResult {
@@ -62,9 +93,13 @@ impl Interpreter {
                 }
             },
             StmtKind::Import(path) => {
-                match crate::modules::load_module(&path) {
-                    Ok(module_program) => self.execute_block(module_program),
-                    Err(e) => ControlFlow::Error(e),
+                if path == "blaze" || path == "collections" { // Handle standard library module
+                    ControlFlow::Continue
+                } else { // Handle .snask files
+                    match crate::modules::load_module(&path) {
+                        Ok(module_program) => self.execute_block(module_program),
+                        Err(e) => ControlFlow::Error(e),
+                    }
                 }
             },
             _ => ControlFlow::Error(format!("Statement not yet implemented: {:?}", statement.kind)),
@@ -155,6 +190,7 @@ impl Interpreter {
             LiteralValue::Number(n) => Value::Number(n),
             LiteralValue::String(s) => Value::String(s),
             LiteralValue::Boolean(b) => Value::Boolean(b),
+            LiteralValue::Nil => Value::Nil,
             LiteralValue::List(expr_list) => {
                 let mut list = Vec::new();
                 for expr in expr_list {
@@ -421,7 +457,7 @@ impl Interpreter {
                 for arg in args {
                     evaluated_args.push(self.evaluate_expression(arg)?);
                 }
-                func(evaluated_args)
+                func(evaluated_args, self)
             },
             _ => Err(format!("Tentativa de chamar um valor não-invocável: {:?}", func_val))
         }

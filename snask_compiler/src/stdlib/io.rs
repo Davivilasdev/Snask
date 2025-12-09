@@ -7,7 +7,7 @@ use std::path::Path;
 pub fn create_module() -> Value {
     let mut module = HashMap::new();
 
-    module.insert("read_file".to_string(), Value::NativeFunction(|args| {
+    module.insert("read_file".to_string(), Value::NativeFunction(|args, _interpreter| {
         if args.len() != 1 { return Err("io.read_file espera 1 argumento".to_string()); }
         
         match &args[0] {
@@ -21,7 +21,7 @@ pub fn create_module() -> Value {
         }
     }));
 
-    module.insert("write_file".to_string(), Value::NativeFunction(|args| {
+    module.insert("write_file".to_string(), Value::NativeFunction(|args, _interpreter| {
         if args.len() != 2 { return Err("io.write_file espera 2 argumentos".to_string()); }
         
         match (&args[0], &args[1]) {
@@ -35,7 +35,7 @@ pub fn create_module() -> Value {
         }
     }));
 
-    module.insert("append_file".to_string(), Value::NativeFunction(|args| {
+    module.insert("append_file".to_string(), Value::NativeFunction(|args, _interpreter| {
         if args.len() != 2 { return Err("io.append_file espera 2 argumentos".to_string()); }
         
         match (&args[0], &args[1]) {
@@ -57,7 +57,7 @@ pub fn create_module() -> Value {
         }
     }));
 
-    module.insert("exists".to_string(), Value::NativeFunction(|args| {
+    module.insert("exists".to_string(), Value::NativeFunction(|args, _interpreter| {
         if args.len() != 1 { return Err("io.exists espera 1 argumento".to_string()); }
         
         match &args[0] {
@@ -68,7 +68,7 @@ pub fn create_module() -> Value {
         }
     }));
 
-    module.insert("delete".to_string(), Value::NativeFunction(|args| {
+    module.insert("delete".to_string(), Value::NativeFunction(|args, _interpreter| {
         if args.len() != 1 { return Err("io.delete espera 1 argumento".to_string()); }
         
         match &args[0] {
@@ -90,7 +90,7 @@ pub fn create_module() -> Value {
         }
     }));
 
-    module.insert("read_dir".to_string(), Value::NativeFunction(|args| {
+    module.insert("read_dir".to_string(), Value::NativeFunction(|args, _interpreter| {
         if args.len() != 1 { return Err("io.read_dir espera 1 argumento".to_string()); }
         
         match &args[0] {
@@ -116,7 +116,7 @@ pub fn create_module() -> Value {
         }
     }));
 
-    module.insert("is_file".to_string(), Value::NativeFunction(|args| {
+    module.insert("is_file".to_string(), Value::NativeFunction(|args, _interpreter| {
         if args.len() != 1 { return Err("io.is_file espera 1 argumento".to_string()); }
         
         match &args[0] {
@@ -127,7 +127,7 @@ pub fn create_module() -> Value {
         }
     }));
 
-    module.insert("is_dir".to_string(), Value::NativeFunction(|args| {
+    module.insert("is_dir".to_string(), Value::NativeFunction(|args, _interpreter| {
         if args.len() != 1 { return Err("io.is_dir espera 1 argumento".to_string()); }
         
         match &args[0] {
@@ -138,7 +138,7 @@ pub fn create_module() -> Value {
         }
     }));
 
-    module.insert("create_dir".to_string(), Value::NativeFunction(|args| {
+    module.insert("create_dir".to_string(), Value::NativeFunction(|args, _interpreter| {
         if args.len() != 1 { return Err("io.create_dir espera 1 argumento".to_string()); }
         
         match &args[0] {

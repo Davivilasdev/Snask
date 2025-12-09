@@ -1,0 +1,24 @@
+<div class="card">
+    <h1 style="margin-bottom: 30px;">Criar Novo Post</h1>
+
+    {{{{mensagem}}}}
+
+    <form method="POST" action="/admin/novo-post">
+        <div style="margin-bottom: 20px;">
+            <label style="display: block; margin-bottom: 8px; font-weight: 600;">Título</label>
+            <input type="text" name="titulo" required
+                style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 5px; font-size: 16px;">
+        </div>
+
+        <div style="margin-bottom: 20px;">
+            <label style="display: block; margin-bottom: 8px; font-weight: 600;">Conteúdo</label>
+            <textarea name="conteudo" rows="15" required
+                style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 5px; font-size: 16px; font-family: inherit; resize: vertical;"></textarea>
+        </div>
+
+        <div style="display: flex; gap: 10px;">
+            <button type="submit" class="btn">Publicar Post</button>
+            <a href="/admin" class="btn btn-secondary">Cancelar</a>
+        </div>
+    </form>
+</div>

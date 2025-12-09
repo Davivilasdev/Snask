@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 /// Registra funções de JSON na stdlib
 pub fn register(globals: &mut SymbolTable) {
-    globals.define_native_function("json_parse", |args| {
+    globals.define_native_function("json_parse", |args, _interpreter| {
         if args.len() != 1 { return Err("json_parse espera 1 argumento".to_string()); }
         
         match &args[0] {

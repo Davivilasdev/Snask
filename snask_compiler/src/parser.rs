@@ -30,6 +30,7 @@ pub enum Token {
     Import(Location),
     True(Location),
     False(Location),
+    Nil(Location),
 
     // Literals
     Identifier(String, Location),
@@ -44,6 +45,7 @@ pub enum Token {
     Equal(Location),
     EqualEqual(Location),
     BangEqual(Location),
+
     Less(Location),
     LessEqual(Location),
     Greater(Location),
@@ -86,6 +88,7 @@ impl Token {
             Token::Import(loc) |
             Token::True(loc) |
             Token::False(loc) |
+            Token::Nil(loc) |
             Token::Identifier(_, loc) |
             Token::Number(_, loc) |
             Token::String(_, loc) |
@@ -134,6 +137,7 @@ impl Token {
             Token::Import(_) => "'import'".to_string(),
             Token::True(_) => "'true'".to_string(),
             Token::False(_) => "'false'".to_string(),
+            Token::Nil(_) => "'nil'".to_string(),
             Token::Identifier(name, _) => format!("identificador '{}'", name),
             Token::Number(n, _) => format!("número '{}'", n),
             Token::String(s, _) => format!("string \"{}\"", s),
@@ -326,6 +330,7 @@ impl<'a> Tokenizer<'a> {
             "import" => Token::Import(loc),
             "true" => Token::True(loc),
             "false" => Token::False(loc),
+            "nil" => Token::Nil(loc),
             _ => Token::Identifier(ident, loc),
         }
     }
@@ -527,7 +532,6 @@ impl<'a> Parser<'a> {
         let (name, _) = self.consume_identifier()?;
         self.consume_token(&Token::Equal(Location{line:0,column:0}))?;
         let value = self.parse_expression(Precedence::Assignment)?;
-        self.consume_token(&Token::Semicolon(Location{line:0,column:0}))?;
 
         Ok(Stmt {
             kind: StmtKind::VarAssignment(crate::ast::VarSet { name, value }),
@@ -541,8 +545,10 @@ impl<'a> Parser<'a> {
                 // This is an assignment statement.
                 let (name, _) = self.consume_identifier()?;
                 self.consume_token(&Token::Equal(Location{line:0,column:0}))?;
-                let value = self.parse_expression(Precedence::None)?;
-                self.consume_token(&Token::Semicolon(Location{line:0,column:0}))?;
+                let value = self.parse_expression(Precedence::Assignment)?;
+                if let Token::Semicolon(_) = self.current_token {
+                    self.consume_token(&Token::Semicolon(Location{line:0, column:0}))?;
+                }
                 let kind = StmtKind::VarAssignment(crate::ast::VarSet { name, value });
                 return Ok(Stmt { kind, loc });
             }
@@ -563,12 +569,14 @@ impl<'a> Parser<'a> {
             _ => {
                 let loc = self.current_token.get_location().clone();
                 let expr = self.parse_expression(Precedence::Assignment)?;
-                self.consume_token(&Token::Semicolon(Location{line:0,column:0}))?;
                 
                 let kind = match expr.kind {
                     ExprKind::FunctionCall { .. } => StmtKind::FuncCall(expr),
                     _ => StmtKind::Expression(expr),
                 };
+                if let Token::Semicolon(_) = self.current_token {
+                    self.consume_token(&Token::Semicolon(Location{line:0, column:0}))?;
+                }
                 Ok(Stmt { kind, loc })
             }
         }
@@ -579,7 +587,6 @@ impl<'a> Parser<'a> {
         let (name, _) = self.consume_identifier()?;
         let var_type = self.parse_type_annotation()?
             .ok_or_else(|| "Esperado anotação de tipo (ex: ': str') após nome da variável para comando 'input'.".to_string())?;
-        self.consume_token(&Token::Semicolon(Location{line:0, column:0}))?;
         Ok(Stmt {
             kind: StmtKind::Input { name, var_type },
             loc,
@@ -595,7 +602,9 @@ impl<'a> Parser<'a> {
             },
             _ => return Err(format!("Esperado string literal após 'import', encontrado {}", self.current_token.friendly_name())),
         };
-        self.consume_token(&Token::Semicolon(Location{line:0, column:0}))?;
+        if let Token::Semicolon(_) = self.current_token {
+            self.consume_token(&Token::Semicolon(Location{line:0, column:0}))?;
+        }
         Ok(Stmt {
             kind: StmtKind::Import(path),
             loc,
@@ -672,7 +681,11 @@ impl<'a> Parser<'a> {
             loop {
                 let (param_name, _) = self.consume_identifier()?;
                 let param_type = self.parse_type_annotation()?;
-                params.push((param_name, param_type.unwrap())); // Assuming type annotation is mandatory for params
+                let param_type_resolved = match param_type {
+                    Some(t) => t,
+                    None => Type::Any,
+                };
+                params.push((param_name, param_type_resolved)); // Default to Type::Any if not specified
                 if !matches!(self.current_token, Token::Comma(_)) {
                     break;
                 }
@@ -681,7 +694,7 @@ impl<'a> Parser<'a> {
         }
         self.consume_token(&Token::RightParen(Location{line:0, column:0}))?;
         
-        let return_type = self.parse_type_annotation()?;
+        let return_type: Option<Type> = self.parse_type_annotation()?;
         let body = self.parse_block()?;
 
         Ok(Stmt {
@@ -693,7 +706,9 @@ impl<'a> Parser<'a> {
     fn parse_return_statement(&mut self) -> Result<Stmt, String> {
         let loc = self.consume_token(&Token::Return(Location { line: 0, column: 0 }))?.get_location().clone();
         let value = self.parse_expression(Precedence::Assignment)?;
-        self.consume_token(&Token::Semicolon(Location { line: 0, column: 0 }))?;
+        if let Token::Semicolon(_) = self.current_token {
+            self.consume_token(&Token::Semicolon(Location{line:0, column:0}))?;
+        }
         Ok(Stmt {
             kind: StmtKind::Return(value),
             loc,
@@ -717,8 +732,9 @@ impl<'a> Parser<'a> {
         let var_type = self.parse_type_annotation()?;
         self.consume_token(&Token::Equal(Location{line:0, column:0}))?;
         let value = self.parse_expression(Precedence::Assignment)?;
-        self.consume_token(&Token::Semicolon(Location{line:0, column:0}))?;
-
+        if let Token::Semicolon(_) = self.current_token {
+            self.consume_token(&Token::Semicolon(Location{line:0, column:0}))?;
+        }
         Ok(Stmt {
             kind: StmtKind::VarDeclaration(VarDecl { name, var_type, value }),
             loc,
@@ -731,8 +747,9 @@ impl<'a> Parser<'a> {
         let var_type = self.parse_type_annotation()?;
         self.consume_token(&Token::Equal(Location{line:0, column:0}))?;
         let value = self.parse_expression(Precedence::Assignment)?;
-        self.consume_token(&Token::Semicolon(Location{line:0, column:0}))?;
-
+        if let Token::Semicolon(_) = self.current_token {
+            self.consume_token(&Token::Semicolon(Location{line:0, column:0}))?;
+        }
         Ok(Stmt {
             kind: StmtKind::MutDeclaration(MutDecl { name, var_type, value }),
             loc,
@@ -745,7 +762,9 @@ impl<'a> Parser<'a> {
         let var_type = self.parse_type_annotation()?;
         self.consume_token(&Token::Equal(Location{line:0, column:0}))?;
         let value = self.parse_expression(Precedence::Assignment)?;
-        self.consume_token(&Token::Semicolon(Location{line:0, column:0}))?;
+        if let Token::Semicolon(_) = self.current_token {
+            self.consume_token(&Token::Semicolon(Location{line:0, column:0}))?;
+        }
 
         Ok(Stmt {
             kind: StmtKind::ConstDeclaration(ConstDecl { name, var_type, value }),
@@ -767,7 +786,9 @@ impl<'a> Parser<'a> {
             }
         }
         self.consume_token(&Token::RightParen(Location{line:0, column:0}))?;
-        self.consume_token(&Token::Semicolon(Location{line:0, column:0}))?;
+        if let Token::Semicolon(_) = self.current_token {
+            self.consume_token(&Token::Semicolon(Location{line:0, column:0}))?;
+        }
         Ok(Stmt {
             kind: StmtKind::Print(expressions),
             loc,
@@ -843,6 +864,13 @@ impl<'a> Parser<'a> {
                 self.consume_token(&Token::False(loc.clone()))?;
                 Ok(Expr {
                     kind: ExprKind::Literal(LiteralValue::Boolean(false)),
+                    loc,
+                })
+            }
+            Token::Nil(_) => {
+                self.consume_token(&Token::Nil(loc.clone()))?;
+                Ok(Expr {
+                    kind: ExprKind::Literal(LiteralValue::Nil),
                     loc,
                 })
             }
@@ -931,7 +959,7 @@ impl<'a> Parser<'a> {
         let mut args = Vec::new();
         if !matches!(self.current_token, Token::RightParen(_)) {
             loop {
-                args.push(self.parse_expression(Precedence::Assignment)?);
+                args.push(self.parse_expression(Precedence::Assignment)?); // This is where arguments are parsed
                 if !matches!(self.current_token, Token::Comma(_)) {
                     break;
                 }

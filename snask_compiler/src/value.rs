@@ -1,4 +1,5 @@
 use crate::ast::FuncDecl;
+use crate::interpreter::Interpreter;
 use std::collections::HashMap;
 use std::fmt;
 use std::hash::{Hash, Hasher};
@@ -12,7 +13,7 @@ pub enum Value {
     Dict(HashMap<Value, Value>),
     Nil,
     Function(FuncDecl),
-    NativeFunction(fn(Vec<Value>) -> Result<Value, String>),
+    NativeFunction(fn(Vec<Value>, &mut Interpreter) -> Result<Value, String>),
 }
 
 impl Hash for Value {
@@ -72,3 +73,19 @@ impl fmt::Display for Value {
 }
 
 impl Eq for Value {}
+
+impl Value {
+    pub fn is_truthy(&self) -> bool {
+        match self {
+            Value::Boolean(b) => *b,
+            Value::Number(n) => *n != 0.0,
+            Value::String(s) => !s.is_empty(),
+            Value::List(list) => !list.is_empty(),
+            Value::Dict(dict) => !dict.is_empty(),
+            Value::Nil => false,
+            // Functions are generally considered truthy if they exist
+            Value::Function(_) => true,
+            Value::NativeFunction(_) => true,
+        }
+    }
+}

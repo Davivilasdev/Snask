@@ -1,0 +1,27 @@
+<div class="card">
+    <h1 style="margin-bottom: 30px;">Painel Administrativo</h1>
+
+    <div
+        style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 40px;">
+        <div style="background: #667eea; color: white; padding: 30px; border-radius: 10px; text-align: center;">
+            <h2 style="font-size: 36px; margin-bottom: 10px;">{{{{total_posts}}}}</h2>
+            <p>Posts Publicados</p>
+        </div>
+        <div style="background: #764ba2; color: white; padding: 30px; border-radius: 10px; text-align: center;">
+            <h2 style="font-size: 36px; margin-bottom: 10px;">{{{{total_comentarios}}}}</h2>
+            <p>Comentários</p>
+        </div>
+        <div style="background: #28a745; color: white; padding: 30px; border-radius: 10px; text-align: center;">
+            <h2 style="font-size: 36px; margin-bottom: 10px;">{{{{total_usuarios}}}}</h2>
+            <p>Usuários</p>
+        </div>
+    </div>
+
+    <div style="margin-bottom: 30px;">
+        <a href="/admin/novo-post" class="btn">✍️ Novo Post</a>
+        <a href="/admin/usuarios" class="btn btn-secondary">👥 Gerenciar Usuários</a>
+    </div>
+
+    <h2 style="margin-bottom: 20px;">Últimos Posts</h2>
+    {{{{posts_recentes}}}}
+</div>

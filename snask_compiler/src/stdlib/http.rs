@@ -5,7 +5,7 @@ use std::collections::HashMap;
 pub fn create_module() -> Value {
     let mut module = HashMap::new();
 
-    module.insert("get".to_string(), Value::NativeFunction(|args| {
+    module.insert("get".to_string(), Value::NativeFunction(|args, _interpreter| {
         if args.len() != 1 { return Err("http.get espera 1 argumento".to_string()); }
         
         match &args[0] {
@@ -50,7 +50,7 @@ pub fn create_module() -> Value {
         }
     }));
 
-    module.insert("post".to_string(), Value::NativeFunction(|args| {
+    module.insert("post".to_string(), Value::NativeFunction(|args, _interpreter| {
         if args.len() != 2 { return Err("http.post espera 2 argumentos".to_string()); }
         
         match (&args[0], &args[1]) {

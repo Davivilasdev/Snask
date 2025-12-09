@@ -1,3 +1,0 @@
-// Teste de falha semântica
-let x: int = "texto"; // Erro de tipo
-print(sqrt("texto")); // Erro de argumento

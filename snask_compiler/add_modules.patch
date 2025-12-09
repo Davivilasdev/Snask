@@ -1,0 +1,38 @@
+--- a/src/semantic_analyzer.rs
++++ b/src/semantic_analyzer.rs
+@@ -104,6 +104,32 @@ impl SemanticAnalyzer {
+         };
+         self.symbol_table.define(math_symbol);
+ 
++        // Define outros módulos como Any
++        let string_symbol = SemanticSymbol {
++            name: "string".to_string(),
++            symbol_type: Type::Any,
++            kind: SemanticSymbolKind::Immutable,
++        };
++        self.symbol_table.define(string_symbol);
++
++        let collections_symbol = SemanticSymbol {
++            name: "collections".to_string(),
++            symbol_type: Type::Any,
++            kind: SemanticSymbolKind::Immutable,
++        };
++        self.symbol_table.define(collections_symbol);
++
++        let blaze_symbol = SemanticSymbol {
++            name: "blaze".to_string(),
++            symbol_type: Type::Any,
++            kind: SemanticSymbolKind::Immutable,
++        };
++        self.symbol_table.define(blaze_symbol);
++
++        let blaze_auth_symbol = SemanticSymbol {
++            name: "blaze_auth".to_string(),
++            symbol_type: Type::Any,
++            kind: SemanticSymbolKind::Immutable,
++        };
++        self.symbol_table.define(blaze_auth_symbol);
++
+         // String
+         self.define_builtin("len", vec![Type::String], Type::Float);
+         self.define_builtin("upper", vec![Type::String], Type::String);

@@ -33,6 +33,7 @@ pub enum LiteralValue {
     Boolean(bool),
     List(Vec<Expr>),
     Dict(Vec<(Expr, Expr)>),
+    Nil,
 }
 
 // Wrapper struct for Expression, including location info

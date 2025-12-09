@@ -1,4 +1,4 @@
-use crate::ast::{Program, Stmt, StmtKind, Expr, ExprKind, VarDecl, BinaryOp, UnaryOp, LiteralValue, ConditionalStmt, LoopStmt, ListDecl, DictDecl, ListPush, DictSet};
+﻿use crate::ast::{Program, Stmt, StmtKind, Expr, ExprKind, VarDecl, BinaryOp, UnaryOp, LiteralValue, ConditionalStmt, LoopStmt, ListDecl, DictDecl, ListPush, DictSet};
 use crate::types::Type;
 use std::collections::HashMap;
 
@@ -16,6 +16,7 @@ pub struct SemanticSymbol {
     pub name: String,
     pub symbol_type: Type,
     pub kind: SemanticSymbolKind,
+    pub is_variadic: bool, // Novo campo
 }
 
 #[derive(Debug, Clone)]
@@ -102,69 +103,138 @@ impl SemanticAnalyzer {
             name: "math".to_string(),
             symbol_type: Type::Any,
             kind: SemanticSymbolKind::Immutable,
+            is_variadic: false,
         };
         self.symbol_table.define(math_symbol);
 
+        // Define outros módulos como Any
+        let string_symbol = SemanticSymbol {
+            name: "string".to_string(),
+            symbol_type: Type::Any,
+            kind: SemanticSymbolKind::Immutable,
+            is_variadic: false,
+        };
+        self.symbol_table.define(string_symbol);
+
+        let collections_symbol = SemanticSymbol {
+            name: "collections".to_string(),
+            symbol_type: Type::Any,
+            kind: SemanticSymbolKind::Immutable,
+            is_variadic: false,
+        };
+        self.symbol_table.define(collections_symbol);
+
+        let blaze_symbol = SemanticSymbol {
+            name: "blaze".to_string(),
+            symbol_type: Type::Any,
+            kind: SemanticSymbolKind::Immutable,
+            is_variadic: false,
+        };
+        self.symbol_table.define(blaze_symbol);
+
+        let blaze_auth_symbol = SemanticSymbol {
+            name: "blaze_auth".to_string(),
+            symbol_type: Type::Any,
+            kind: SemanticSymbolKind::Immutable,
+            is_variadic: false,
+        };
+        self.symbol_table.define(blaze_auth_symbol);
+
+        let blaze_db_symbol = SemanticSymbol {
+            name: "blaze_db".to_string(),
+            symbol_type: Type::Any,
+            kind: SemanticSymbolKind::Immutable,
+            is_variadic: false,
+        };
+        self.symbol_table.define(blaze_db_symbol);
+
+        // Math Functions (top-level)
+        self.define_builtin("abs", vec![Type::Float], Type::Float, false);
+        self.define_builtin("floor", vec![Type::Float], Type::Float, false);
+        self.define_builtin("ceil", vec![Type::Float], Type::Float, false);
+        self.define_builtin("round", vec![Type::Float], Type::Float, false);
+        self.define_builtin("pow", vec![Type::Float, Type::Float], Type::Float, false);
+        self.define_builtin("sqrt", vec![Type::Float], Type::Float, false);
+        self.define_builtin("min", vec![], Type::Any, true); // Simplified, variadic
+        self.define_builtin("max", vec![], Type::Any, true); // Simplified, variadic
+        self.define_builtin("sin", vec![Type::Float], Type::Float, false);
+        self.define_builtin("cos", vec![Type::Float], Type::Float, false);
+
+        // Math Constants
+        self.define_constant("PI", Type::Float);
+        self.define_constant("E", Type::Float);
+        self.define_constant("TAU", Type::Float);
+
         // String
-        self.define_builtin("len", vec![Type::String], Type::Float);
-        self.define_builtin("upper", vec![Type::String], Type::String);
-        self.define_builtin("lower", vec![Type::String], Type::String);
-        self.define_builtin("trim", vec![Type::String], Type::String);
-        self.define_builtin("split", vec![Type::String, Type::String], Type::List);
-        self.define_builtin("join", vec![Type::List, Type::String], Type::String);
-        self.define_builtin("replace", vec![Type::String, Type::String, Type::String], Type::String);
-        self.define_builtin("contains", vec![Type::String, Type::String], Type::Bool);
-        self.define_builtin("starts_with", vec![Type::String, Type::String], Type::Bool);
-        self.define_builtin("ends_with", vec![Type::String, Type::String], Type::Bool);
-        self.define_builtin("chars", vec![Type::String], Type::List);
-        self.define_builtin("substring", vec![Type::String, Type::Float, Type::Float], Type::String);
-        self.define_builtin("format", vec![Type::String, Type::Any], Type::String); // Basic support
+        self.define_builtin("len", vec![Type::String], Type::Float, false);
+        self.define_builtin("upper", vec![Type::String], Type::String, false);
+        self.define_builtin("lower", vec![Type::String], Type::String, false);
+        self.define_builtin("trim", vec![Type::String], Type::String, false);
+        self.define_builtin("split", vec![Type::String, Type::String], Type::List, false);
+        self.define_builtin("join", vec![Type::List, Type::String], Type::String, false);
+        self.define_builtin("replace", vec![Type::String, Type::String, Type::String], Type::String, false);
+        self.define_builtin("contains", vec![Type::String, Type::String], Type::Bool, false);
+        self.define_builtin("starts_with", vec![Type::String, Type::String], Type::Bool, false);
+        self.define_builtin("ends_with", vec![Type::String, Type::String], Type::Bool, false);
+        self.define_builtin("chars", vec![Type::String], Type::List, false);
+        self.define_builtin("substring", vec![Type::String, Type::Float, Type::Float], Type::String, false);
+        self.define_builtin("format", vec![Type::String, Type::Any, Type::Any], Type::String, true); // Variadic support // Basic support
 
         // Collections
-        self.define_builtin("range", vec![Type::Float], Type::List); // Basic support
-        self.define_builtin("sort", vec![Type::List], Type::List);
-        self.define_builtin("reverse", vec![Type::List], Type::List);
-        self.define_builtin("unique", vec![Type::List], Type::List);
-        self.define_builtin("flatten", vec![Type::List], Type::List);
+        self.define_builtin("range", vec![Type::Float], Type::List, false); // Basic support
+        self.define_builtin("sort", vec![Type::List], Type::List, false);
+        self.define_builtin("reverse", vec![Type::List], Type::List, false);
+        self.define_builtin("unique", vec![Type::List], Type::List, false);
+        self.define_builtin("flatten", vec![Type::List], Type::List, false);
         // TODO: map, filter, reduce (need function type support in args)
 
         // IO
-        self.define_builtin("read_file", vec![Type::String], Type::String);
-        self.define_builtin("write_file", vec![Type::String, Type::String], Type::Void);
-        self.define_builtin("append_file", vec![Type::String, Type::String], Type::Void);
-        self.define_builtin("exists", vec![Type::String], Type::Bool);
-        self.define_builtin("delete", vec![Type::String], Type::Void);
-        self.define_builtin("read_dir", vec![Type::String], Type::List);
-        self.define_builtin("is_file", vec![Type::String], Type::Bool);
-        self.define_builtin("is_dir", vec![Type::String], Type::Bool);
-        self.define_builtin("create_dir", vec![Type::String], Type::Void);
+        self.define_builtin("read_file", vec![Type::String], Type::String, false);
+        self.define_builtin("write_file", vec![Type::String, Type::String], Type::Void, false);
+        self.define_builtin("append_file", vec![Type::String, Type::String], Type::Void, false);
+        self.define_builtin("exists", vec![Type::String], Type::Bool, false);
+        self.define_builtin("delete", vec![Type::String], Type::Void, false);
+        self.define_builtin("read_dir", vec![Type::String], Type::List, false);
+        self.define_builtin("is_file", vec![Type::String], Type::Bool, false);
+        self.define_builtin("is_dir", vec![Type::String], Type::Bool, false);
+        self.define_builtin("create_dir", vec![Type::String], Type::Void, false);
 
         // HTTP
-        self.define_builtin("http_get", vec![Type::String], Type::Dict);
-        self.define_builtin("http_post", vec![Type::String, Type::String], Type::Void);
+        self.define_builtin("http_get", vec![Type::String], Type::Dict, false);
+        self.define_builtin("http_post", vec![Type::String, Type::String], Type::Void, false);
 
         // JSON
-        self.define_builtin("json_parse", vec![Type::String], Type::Any);
-        self.define_builtin("json_stringify", vec![Type::Any], Type::String);
-        self.define_builtin("json_stringify_pretty", vec![Type::Any], Type::String);
+        self.define_builtin("json_parse", vec![Type::String], Type::Any, false);
+        self.define_builtin("json_stringify", vec![Type::Any], Type::String, false);
+        self.define_builtin("json_stringify_pretty", vec![Type::Any], Type::String, false);
 
         // System
-        self.define_builtin("time", vec![], Type::Float);
-        self.define_builtin("sleep", vec![Type::Float], Type::Void);
-        self.define_builtin("exit", vec![Type::Float], Type::Void);
-        self.define_builtin("args", vec![], Type::List);
-        self.define_builtin("env", vec![Type::String], Type::String);
-        self.define_builtin("set_env", vec![Type::String, Type::String], Type::Void);
-        self.define_builtin("cwd", vec![], Type::String);
-        self.define_builtin("platform", vec![], Type::String);
-        self.define_builtin("arch", vec![], Type::String);
+        self.define_builtin("time", vec![], Type::Float, false);
+        self.define_builtin("sleep", vec![Type::Float], Type::Void, false);
+        self.define_builtin("exit", vec![Type::Float], Type::Void, false);
+        self.define_builtin("args", vec![], Type::List, false);
+        self.define_builtin("env", vec![Type::String], Type::String, false);
+        self.define_builtin("set_env", vec![Type::String, Type::String], Type::Void, false);
+        self.define_builtin("cwd", vec![], Type::String, false);
+        self.define_builtin("platform", vec![], Type::String, false);
+        self.define_builtin("arch", vec![], Type::String, false);
+
+        // Math - Novas funÃ§Ãµes
+        self.define_builtin("mod", vec![Type::Float, Type::Float], Type::Float, false);
+        self.define_builtin("random", vec![], Type::Float, false);
+        self.define_builtin("random_range", vec![Type::Float, Type::Float], Type::Float, false);
+        self.define_builtin("clamp", vec![Type::Float, Type::Float, Type::Float], Type::Float, false);
+        self.define_builtin("sign", vec![Type::Float], Type::Float, false);
+        self.define_builtin("deg_to_rad", vec![Type::Float], Type::Float, false);
+        self.define_builtin("rad_to_deg", vec![Type::Float], Type::Float, false);
     }
 
-    fn define_builtin(&mut self, name: &str, params: Vec<Type>, return_type: Type) {
+    fn define_builtin(&mut self, name: &str, params: Vec<Type>, return_type: Type, is_variadic: bool) {
         let symbol = SemanticSymbol {
             name: name.to_string(),
             symbol_type: Type::Function(params, Box::new(return_type)),
             kind: SemanticSymbolKind::Function,
+            is_variadic,
         };
         self.symbol_table.define(symbol);
     }
@@ -174,6 +244,7 @@ impl SemanticAnalyzer {
             name: name.to_string(),
             symbol_type: const_type,
             kind: SemanticSymbolKind::Constant,
+            is_variadic: false,
         };
         self.symbol_table.define(symbol);
     }
@@ -194,6 +265,7 @@ impl SemanticAnalyzer {
                     name: name.clone(),
                     symbol_type: var_type.clone(),
                     kind: SemanticSymbolKind::Mutable,
+                    is_variadic: false,
                 };
                 if !self.symbol_table.define(symbol) {
                     self.errors.push(SemanticError::VariableAlreadyDeclared(name.clone()));
@@ -212,7 +284,7 @@ impl SemanticAnalyzer {
                     if symbol.kind == SemanticSymbolKind::Constant || symbol.kind == SemanticSymbolKind::Immutable {
                         self.errors.push(SemanticError::ImmutableAssignment(var_set.name.clone()));
                     }
-                    if !self.is_compatible(&symbol.symbol_type, &expr_type) {
+                    if !self.is_compatible(&symbol.symbol_type, &expr_type) && expr_type != Type::Any {
                         self.errors.push(SemanticError::TypeMismatch {
                             expected: symbol.symbol_type.clone(),
                             found: expr_type,
@@ -226,8 +298,9 @@ impl SemanticAnalyzer {
                 let params_types: Vec<Type> = func_decl.params.iter().map(|p| p.1.clone()).collect();
                 let func_symbol = SemanticSymbol {
                     name: func_decl.name.clone(),
-                    symbol_type: Type::Function(params_types, Box::new(func_decl.return_type.clone().unwrap_or(Type::Void))),
+                    symbol_type: Type::Function(params_types, Box::new(func_decl.return_type.clone().unwrap_or(Type::Any))),
                     kind: SemanticSymbolKind::Function,
+                    is_variadic: false,
                 };
                 if !self.symbol_table.define(func_symbol) {
                     self.errors.push(SemanticError::FunctionAlreadyDeclared(func_decl.name.clone()));
@@ -236,13 +309,14 @@ impl SemanticAnalyzer {
 
                 self.symbol_table.enter_scope();
                 let prev_return_type = self.current_function_return_type.clone();
-                self.current_function_return_type = func_decl.return_type.clone();
+                self.current_function_return_type = Some(func_decl.return_type.clone().unwrap_or(Type::Any));
 
                 for (param_name, param_type) in &func_decl.params {
                     let param_symbol = SemanticSymbol {
                         name: param_name.clone(),
                         symbol_type: param_type.clone(),
                         kind: SemanticSymbolKind::Parameter,
+                        is_variadic: false,
                     };
                     self.symbol_table.define(param_symbol);
                 }
@@ -366,6 +440,7 @@ impl SemanticAnalyzer {
             name: decl.name.clone(),
             symbol_type: final_type,
             kind,
+            is_variadic: false,
         };
 
         if !self.symbol_table.define(symbol) {
@@ -427,6 +502,7 @@ impl SemanticAnalyzer {
                     name: iterator.clone(),
                     symbol_type: iterator_type,
                     kind: SemanticSymbolKind::Immutable,
+                    is_variadic: false,
                 };
                 self.symbol_table.define(symbol);
 
@@ -438,7 +514,7 @@ impl SemanticAnalyzer {
 
     fn check_condition(&mut self, expr: &Expr) -> Result<(), SemanticError> {
         let expr_type = self.type_check_expression(expr)?;
-        if expr_type != Type::Bool {
+        if expr_type != Type::Bool && expr_type != Type::Any {
             return Err(SemanticError::TypeMismatch {
                 expected: Type::Bool,
                 found: expr_type,
@@ -468,6 +544,7 @@ impl SemanticAnalyzer {
                 LiteralValue::Boolean(_) => Ok(Type::Bool),
                 LiteralValue::List(_) => Ok(Type::List),
                 LiteralValue::Dict(_) => Ok(Type::Dict),
+                LiteralValue::Nil => Ok(Type::Any),
             },
             ExprKind::Binary { left, op, right } => {
                 let left_type = self.type_check_expression(left)?;
@@ -476,7 +553,11 @@ impl SemanticAnalyzer {
                 match op {
                     BinaryOp::Add => {
                         if left_type == Type::Any || right_type == Type::Any {
-                            Ok(Type::Any)
+                            if left_type == Type::String || right_type == Type::String {
+                                Ok(Type::String) // String + Any -> String
+                            } else {
+                                Ok(Type::Any)
+                            }
                         } else if left_type.is_numeric() && right_type.is_numeric() {
                             if left_type == Type::Float || right_type == Type::Float { Ok(Type::Float) } else { Ok(Type::Int) }
                         } else if left_type == Type::String && right_type == Type::String {
@@ -513,6 +594,21 @@ impl SemanticAnalyzer {
             }
             ExprKind::FunctionCall { callee, args } => {
                 let callee_type = self.type_check_expression(callee)?;
+
+                if let Some(callee_name) = match &callee.kind {
+                    ExprKind::Variable(name) => Some(name),
+                    _ => None,
+                } {
+                    if let Some(symbol) = self.symbol_table.lookup(callee_name) {
+                        if symbol.is_variadic {
+                            // Para funções variádicas, apenas verificamos se os argumentos são compatíveis com Any (se definidos)
+                            for arg in args {
+                                let _ = self.type_check_expression(arg)?;
+                            }
+                            return Ok(Type::Any); // Ou o tipo de retorno esperado, se conhecido
+                        }
+                    }
+                }
 
                 if let Type::Function(param_types, return_type) = callee_type {
                     if args.len() != param_types.len() {

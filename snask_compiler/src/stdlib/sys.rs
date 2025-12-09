@@ -13,7 +13,7 @@ pub fn create_module() -> Value {
         Ok(Value::Number(since_the_epoch.as_secs_f64()))
     }));
 
-    module.insert("sleep".to_string(), Value::NativeFunction(|args| {
+    module.insert("sleep".to_string(), Value::NativeFunction(|args, _interpreter| {
         if args.len() != 1 { return Err("sys.sleep espera 1 argumento".to_string()); }
         
         match &args[0] {
@@ -26,7 +26,7 @@ pub fn create_module() -> Value {
         }
     }));
 
-    module.insert("exit".to_string(), Value::NativeFunction(|args| {
+    module.insert("exit".to_string(), Value::NativeFunction(|args, _interpreter| {
         let code = if args.is_empty() {
             0
         } else {
@@ -47,7 +47,7 @@ pub fn create_module() -> Value {
         Ok(Value::List(args))
     }));
 
-    module.insert("env".to_string(), Value::NativeFunction(|args| {
+    module.insert("env".to_string(), Value::NativeFunction(|args, _interpreter| {
         if args.len() != 1 { return Err("sys.env espera 1 argumento".to_string()); }
         
         match &args[0] {
@@ -61,7 +61,7 @@ pub fn create_module() -> Value {
         }
     }));
 
-    module.insert("set_env".to_string(), Value::NativeFunction(|args| {
+    module.insert("set_env".to_string(), Value::NativeFunction(|args, _interpreter| {
         if args.len() != 2 { return Err("sys.set_env espera 2 argumentos".to_string()); }
         
         match (&args[0], &args[1]) {

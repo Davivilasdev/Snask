@@ -1,11 +1,12 @@
 use crate::value::Value;
+use crate::interpreter::Interpreter;
 use std::collections::HashMap;
 
 /// Cria e retorna o objeto do módulo `string` com todas as suas funções (exceto format).
 pub fn create_module() -> Value {
     let mut module = HashMap::new();
 
-    module.insert("len".to_string(), Value::NativeFunction(|args| {
+    module.insert("len".to_string(), Value::NativeFunction(|args, _interpreter| {
         if args.len() != 1 { return Err("string.len espera 1 argumento".to_string()); }
         match &args[0] {
             Value::String(s) => Ok(Value::Number(s.len() as f64)),
@@ -14,7 +15,7 @@ pub fn create_module() -> Value {
         }
     }));
 
-    module.insert("upper".to_string(), Value::NativeFunction(|args| {
+    module.insert("upper".to_string(), Value::NativeFunction(|args, _interpreter| {
         if args.len() != 1 { return Err("string.upper espera 1 argumento".to_string()); }
         match &args[0] {
             Value::String(s) => Ok(Value::String(s.to_uppercase())),
@@ -22,7 +23,7 @@ pub fn create_module() -> Value {
         }
     }));
 
-    module.insert("lower".to_string(), Value::NativeFunction(|args| {
+    module.insert("lower".to_string(), Value::NativeFunction(|args, _interpreter| {
         if args.len() != 1 { return Err("string.lower espera 1 argumento".to_string()); }
         match &args[0] {
             Value::String(s) => Ok(Value::String(s.to_lowercase())),
@@ -30,7 +31,7 @@ pub fn create_module() -> Value {
         }
     }));
 
-    module.insert("trim".to_string(), Value::NativeFunction(|args| {
+    module.insert("trim".to_string(), Value::NativeFunction(|args, _interpreter| {
         if args.len() != 1 { return Err("string.trim espera 1 argumento".to_string()); }
         match &args[0] {
             Value::String(s) => Ok(Value::String(s.trim().to_string())),
@@ -38,7 +39,7 @@ pub fn create_module() -> Value {
         }
     }));
 
-    module.insert("split".to_string(), Value::NativeFunction(|args| {
+    module.insert("split".to_string(), Value::NativeFunction(|args, _interpreter| {
         if args.len() != 2 { return Err("string.split espera 2 argumentos".to_string()); }
         match (&args[0], &args[1]) {
             (Value::String(s), Value::String(delimiter)) => {
@@ -51,7 +52,7 @@ pub fn create_module() -> Value {
         }
     }));
 
-    module.insert("join".to_string(), Value::NativeFunction(|args| {
+    module.insert("join".to_string(), Value::NativeFunction(|args, _interpreter| {
         if args.len() != 2 { return Err("string.join espera 2 argumentos".to_string()); }
         match (&args[0], &args[1]) {
             (Value::List(list), Value::String(separator)) => {
@@ -63,7 +64,7 @@ pub fn create_module() -> Value {
                 }).collect();
 
                 match strings {
-                    Ok(strs) => Ok(Value::String(strs.join(separator))),
+                    Ok(strs) => Ok(Value::String(strs.join(separator.as_str()))),
                     Err(e) => Err(e),
                 }
             },
@@ -71,7 +72,7 @@ pub fn create_module() -> Value {
         }
     }));
 
-    module.insert("replace".to_string(), Value::NativeFunction(|args| {
+    module.insert("replace".to_string(), Value::NativeFunction(|args, _interpreter| {
         if args.len() != 3 { return Err("string.replace espera 3 argumentos".to_string()); }
         match (&args[0], &args[1], &args[2]) {
             (Value::String(s), Value::String(from), Value::String(to)) => {
@@ -81,7 +82,7 @@ pub fn create_module() -> Value {
         }
     }));
 
-    module.insert("contains".to_string(), Value::NativeFunction(|args| {
+    module.insert("contains".to_string(), Value::NativeFunction(|args, _interpreter| {
         if args.len() != 2 { return Err("string.contains espera 2 argumentos".to_string()); }
         match (&args[0], &args[1]) {
             (Value::String(s), Value::String(substr)) => {
@@ -91,7 +92,7 @@ pub fn create_module() -> Value {
         }
     }));
 
-    module.insert("starts_with".to_string(), Value::NativeFunction(|args| {
+    module.insert("starts_with".to_string(), Value::NativeFunction(|args, _interpreter| {
         if args.len() != 2 { return Err("string.starts_with espera 2 argumentos".to_string()); }
         match (&args[0], &args[1]) {
             (Value::String(s), Value::String(prefix)) => {
@@ -101,7 +102,7 @@ pub fn create_module() -> Value {
         }
     }));
 
-    module.insert("ends_with".to_string(), Value::NativeFunction(|args| {
+    module.insert("ends_with".to_string(), Value::NativeFunction(|args, _interpreter| {
         if args.len() != 2 { return Err("string.ends_with espera 2 argumentos".to_string()); }
         match (&args[0], &args[1]) {
             (Value::String(s), Value::String(suffix)) => {
@@ -111,7 +112,7 @@ pub fn create_module() -> Value {
         }
     }));
 
-    module.insert("chars".to_string(), Value::NativeFunction(|args| {
+    module.insert("chars".to_string(), Value::NativeFunction(|args, _interpreter| {
         if args.len() != 1 { return Err("string.chars espera 1 argumento".to_string()); }
         match &args[0] {
             Value::String(s) => {
@@ -124,7 +125,7 @@ pub fn create_module() -> Value {
         }
     }));
 
-    module.insert("substring".to_string(), Value::NativeFunction(|args| {
+    module.insert("substring".to_string(), Value::NativeFunction(|args, _interpreter| {
         if args.len() != 3 { return Err("string.substring espera 3 argumentos".to_string()); }
         match (&args[0], &args[1], &args[2]) {
             (Value::String(s), Value::Number(start), Value::Number(end)) => {
@@ -152,7 +153,7 @@ pub fn create_module() -> Value {
 
 /// Retorna a função 'format' para ser registrada globalmente.
 pub fn get_global_format_function() -> Value {
-    Value::NativeFunction(|args| {
+    Value::NativeFunction(|args, _interpreter| {
         if args.is_empty() { return Err("format espera pelo menos 1 argumento".to_string()); }
         
         match &args[0] {

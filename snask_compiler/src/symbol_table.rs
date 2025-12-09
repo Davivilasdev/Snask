@@ -66,7 +66,7 @@ impl SymbolTable {
         None
     }
 
-    pub fn define_native_function(&mut self, name: &str, func: fn(Vec<Value>) -> Result<Value, String>) {
+    pub fn define_native_function(&mut self, name: &str, func: fn(Vec<Value>, &mut crate::interpreter::Interpreter) -> Result<Value, String>) {
         self.define(name.to_string(), Value::NativeFunction(func), false, false);
     }
 }
