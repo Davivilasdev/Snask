@@ -1,73 +1,143 @@
-# 🐍 Snask Programming Language
+🐍 Snask: Uma Linguagem de Programação Moderna e de Alto Desempenho
 
-**Versão Atual: v0.2.0**
+<!-- BADGES (Simulação de Badges Profissionais) --> <!--
+[![Versão](https://img.shields.io/badge/Versão-v0.2.0-blue.svg )](https://github.com/Davivilasdev/Snask/releases/tag/v0.2.0 )
+[![Licença](https://img.shields.io/badge/Licença-MIT-green.svg )](LICENSE)
+[![Construído com](https://img.shields.io/badge/Construído%20com-Rust-orange.svg )](https://www.rust-lang.org/ )
+-->
 
-Bem-vindo ao **Snask**, uma linguagem de programação moderna, dinâmica e interpretada, projetada para ser simples, poderosa e com uma experiência de desenvolvimento incrível.
+Snask é uma linguagem de programação dinâmica e interpretada, projetada para oferecer uma experiência de desenvolvimento simples e poderosa, combinada com o alto desempenho de uma runtime construída em Rust.
 
----
+Seu objetivo é ser a ponte perfeita entre a facilidade de uso de linguagens de scripting e a robustez de sistemas de baixo nível.
 
-## 🚀 Destaques da Versão v0.2.0
+✨ Principais Recursos (v0.2.0)
 
-- **Biblioteca Padrão Completa**: Mais de **70 funções** nativas para matemática, strings, coleções, I/O, HTTP e JSON.
-- **REPL Interativo**: Um shell interativo profissional com histórico e comandos especiais.
-- **Diagnósticos Bonitos**: Mensagens de erro coloridas e explicativas, inspiradas em Rust e Elm.
-- **Sintaxe Moderna**: Tipagem opcional, funções de primeira classe e estruturas de dados ricas.
+A versão v0.2.0 traz um conjunto robusto de funcionalidades que a posicionam como uma ferramenta séria para desenvolvimento:
 
----
+Recurso
+Descrição
+🚀 Performance Rust
+O interpretador é compilado em Rust, garantindo velocidade e segurança de memória.
+📚 Biblioteca Padrão Rica
+Mais de 70 funções nativas para I/O, HTTP, JSON, matemática e manipulação de coleções.
+🔧 Gerenciador de Pacotes Automático
+Instale módulos Rust da comunidade com um único comando, estendendo a linguagem de forma nativa e automática.
+💻 REPL Interativo
+Um shell profissional com histórico de comandos e comandos especiais para prototipagem rápida.
+🎨 Diagnósticos de Erro
+Mensagens de erro coloridas e explicativas, inspiradas nas melhores práticas de linguagens como Rust e Elm.
+💡 Sintaxe Moderna
+Suporte a tipagem opcional, funções de primeira classe, estruturas de dados ricas (list, dict) e controle de fluxo intuitivo.
 
-## 📦 Instalação e Uso
 
-### Pré-requisitos
-- Rust (para compilar o interpretador)
+📦 Instalação e Configuração
 
-### Compilando
+Snask é construído em Rust, o que torna a compilação e o uso diretos.
 
-```bash
+Pré-requisitos
+
+Certifique-se de ter o Rust instalado em seu sistema.
+
+Compilação
+
+Para compilar o interpretador a partir do código-fonte:
+
+Bash
+
+
+# Navegue até o diretório do compilador
 cd snask_compiler
+
+# Compile o projeto em modo de release para otimização
 cargo build --release
-```
 
-O executável será gerado em `target/release/snask.exe`.
 
-### Executando
+O executável final será gerado em target/release/snask (ou target/release/snask.exe no Windows).
 
-#### 1. REPL (Modo Interativo)
-Para experimentar o Snask rapidamente:
+Execução
 
-```bash
-snask repl
-```
+1. Modo Interativo (REPL)
 
-#### 2. Interpretador (Executar Arquivos)
-Para rodar um arquivo `.snask`:
+Use o REPL para testar comandos e prototipar rapidamente:
 
-```bash
-snask interpret meu_programa.snask
-```
+Bash
 
----
 
-## 📚 Sintaxe Básica
+./target/release/snask repl
 
-### Variáveis
 
-```snask
-let nome = "Snask";      // Imutável
-mut contador = 0;        // Mutável
-const PI = 3.14159;      // Constante
-```
+2. Interpretar Arquivos
 
-### Tipos de Dados
+Para executar um arquivo de código-fonte Snask (extensão .snask):
 
-- **float**: Números (inteiros e decimais). Ex: `42`, `3.14`
-- **str**: Textos. Ex: `"Olá"`
-- **bool**: Booleanos. Ex: `true`, `false`
-- **list**: Listas. Ex: `[1, 2, 3]`
-- **dict**: Dicionários. Ex: `{"a": 1, "b": 2}`
+Bash
 
-### Controle de Fluxo
 
-```snask
+./target/release/snask interpret meu_programa.snask
+
+
+📖 Visão Geral da Linguagem
+
+A sintaxe do Snask é projetada para ser familiar a desenvolvedores de Python e C, mas com a clareza de linguagens modernas.
+
+Variáveis e Tipos
+
+Snask suporta três tipos de declaração de variáveis e tipagem dinâmica.
+
+Declaração
+Exemplo
+Descrição
+let
+let nome = "Snask";
+Variável imutável (preferencial).
+mut
+mut contador = 0;
+Variável mutável.
+const
+const PI = 3.14159;
+Constante de valor fixo.
+
+
+Tipos de Dados Principais:
+
+•
+float: Números (inteiros e decimais).
+
+•
+str: Textos.
+
+•
+bool: Booleanos (true, false).
+
+•
+list: Listas dinâmicas.
+
+•
+dict: Dicionários (mapas de chave-valor).
+
+Funções
+
+As funções suportam tipagem opcional para argumentos e retorno, promovendo código mais legível e robusto.
+
+Plain Text
+
+
+// Função com tipagem opcional
+fun somar(a: float, b: float): float {
+    return a + b;
+}
+
+// Chamada da função
+print(somar(10, 20)); // Saída: 30
+
+
+Controle de Fluxo
+
+O controle de fluxo utiliza a sintaxe if/elif/else e blocos {}.
+
+Plain Text
+
+
 if x > 10 {
     print("Maior que 10");
 } elif x == 10 {
@@ -76,192 +146,92 @@ if x > 10 {
     print("Menor que 10");
 }
 
-while i < 5 {
-    print(i);
-    i = i + 1;
-}
-
+// Loop de iteração
 for item in [1, 2, 3] {
     print(item);
 }
-```
 
-### Funções
 
-```snask
-fun somar(a: float, b: float): float {
-    return a + b;
-}
+🛠️ Biblioteca Padrão (Standard Library)
 
-print(somar(10, 20)); // 30
-```
+A biblioteca padrão é organizada em módulos e acessível globalmente.
 
----
+Módulo
+Foco
+Funções Chave (Exemplos)
+Math
+Operações matemáticas
+abs(), sqrt(), sin(), min(), PI
+String
+Manipulação de texto
+len(), upper(), split(), join(), format()
+Collections
+Listas e Dicionários
+range(), sort(), reverse(), unique()
+IO
+Entrada/Saída e Arquivos
+read_file(), write_file(), exists(), delete()
+HTTP & JSON
+Conectividade Web
+http_get( ), json_parse(), json_stringify()
+System
+Utilitários do Sistema
+time(), sleep(), exit(), args(), platform()
 
-## 🛠️ Biblioteca Padrão (Standard Library)
 
-O Snask v0.2.0 vem com uma biblioteca padrão rica e organizada em módulos.
+🚀 Gerenciador de Pacotes (Extensão Nativa)
 
-### 📐 Math (Matemática)
-Funções matemáticas essenciais.
+Um dos recursos mais poderosos do Snask é a capacidade de estender a linguagem com módulos nativos escritos em Rust, de forma totalmente automatizada.
 
-- `abs(n)`, `floor(n)`, `ceil(n)`, `round(n)`
-- `pow(base, exp)`, `sqrt(n)`
-- `sin(rad)`, `cos(rad)`, `tan(rad)`
-- `min(a, b...)`, `max(a, b...)`
-- Constantes: `PI`, `E`, `TAU`
+Como Funciona
 
-### 🔤 String (Texto)
-Manipulação de strings.
+O comando snask install <nome_do_modulo> cuida de todo o processo:
 
-- `len(s)`: Tamanho da string
-- `upper(s)`, `lower(s)`: Maiúsculas/Minúsculas
-- `trim(s)`: Remove espaços
-- `split(s, sep)`: Divide string em lista
-- `join(list, sep)`: Junta lista em string
-- `replace(s, old, new)`: Substitui texto
-- `contains(s, sub)`, `starts_with(s, sub)`
-- `format(template, args...)`: Interpolação básica
+1.
+Download do código-fonte Rust do módulo.
 
-### 📦 Collections (Coleções)
-Manipulação de listas e dicionários.
+2.
+Integração automática no projeto Snask.
 
-- `range(n)`: Cria lista de 0 a n-1
-- `sort(list)`: Ordena lista
-- `reverse(list)`: Inverte lista
-- `unique(list)`: Remove duplicatas
-- `flatten(list)`: Achata listas aninhadas
-- `map`, `filter`, `reduce` (em desenvolvimento)
+3.
+Recompilação do interpretador.
 
-### 📁 IO (Entrada/Saída)
-Operações de arquivo e sistema de arquivos.
+Resultado: O novo módulo e suas funções são imediatamente adicionados à biblioteca padrão, prontos para uso.
 
-- `read_file(path)`: Lê arquivo para string
-- `write_file(path, content)`: Escreve string em arquivo
-- `append_file(path, content)`: Adiciona ao final
-- `exists(path)`: Verifica se existe
-- `delete(path)`: Remove arquivo
-- `read_dir(path)`: Lista diretório
+Bash
 
-### 🌐 HTTP & JSON
-Conectividade e dados.
 
-- `http_get(url)`: Faz requisição GET
-- `http_post(url, body)`: Faz requisição POST
-- `json_parse(str)`: Converte JSON para objeto
-- `json_stringify(obj)`: Converte objeto para JSON
-
-### ⚙️ System
-Utilitários do sistema.
-
-- `time()`: Timestamp atual
-- `sleep(ms)`: Pausa execução
-- `exit(code)`: Encerra programa
-- `args()`: Argumentos de linha de comando
-- `platform()`: Sistema operacional (windows, linux...)
-
----
-
-## 💻 Exemplo Completo
-
-```snask
-// Calculadora de Fatorial
-fun fatorial(n: float): float {
-    if n <= 1 {
-        return 1;
-    }
-    return n * fatorial(n - 1);
-}
-
-print("Calculando fatoriais...");
-let numeros = range(1, 6); // [1, 2, 3, 4, 5]
-
-for n in numeros {
-    let fat = fatorial(n);
-    print("Fatorial de", n, "é", fat);
-}
-
-// Manipulação de Arquivos
-let resultado = "Resultado final: " + format("{}", fatorial(5));
-write_file("resultado.txt", resultado);
-print("Resultado salvo em resultado.txt");
-print(math::sqrt(16));  // 4
-```
-
----
-
-## 📦 Gerenciador de Pacotes
-
-Snask possui um gerenciador de pacotes **totalmente automático** que permite instalar módulos Rust da comunidade e estendê-los à biblioteca padrão.
-
-### Instalando Módulos
-
-```bash
-# Instalar um módulo do registro oficial
-snask install <nome_do_modulo>
-
-# Exemplo: instalar módulo adicional
-snask install advanced_math
-```
-
-### Processo Automático
-
-Quando você executa `snask install <modulo>`, o sistema automaticamente:
-
-1. ✅ **Download**: Baixa o módulo `.rs` do repositório [SnaskPackages](https://github.com/Davivilasdev/SnaskPackages)
-2. ✅ **Integração**: Salva em `src/stdlib/`
-3. ✅ **Declaração**: Adiciona `pub mod <modulo>;` em `src/stdlib.rs`
-4. ✅ **Registro**: Adiciona `<modulo>::create_module()` em `register_stdlib()`
-5. ✅ **Compilação**: Executa `cargo build --release` automaticamente
-
-**Tudo isso acontece com um único comando!** 🚀
-
-### Exemplo de Uso
-
-```bash
-# Instalar módulo
+# Exemplo de instalação
 $ snask install advanced_math
 
-📦 Baixando módulo Rust 'advanced_math' de https://...
-✓ Módulo 'advanced_math' baixado para src/stdlib/advanced_math.rs
-
-🔧 Integrando módulo automaticamente...
-✓ Módulo integrado em src/stdlib.rs
-
-🔨 Recompilando Snask...
-✓ Compilação concluída com sucesso!
+# ... Processo automático de download, integração e compilação ...
 
 ✅ INSTALAÇÃO COMPLETA!
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-O módulo 'advanced_math' está pronto para uso!
-As funções do módulo estão disponíveis globalmente em seus programas Snask.
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# As funções do módulo 'advanced_math' estão agora disponíveis globalmente.
 
-# Agora você pode usar imediatamente!
-$ snask repl
-> funcao_do_modulo(10);
-```
 
-### Repositório Oficial
+🗺️ Roadmap Futuro
 
-Módulos oficiais estão disponíveis em: [SnaskPackages](https://github.com/Davivilasdev/SnaskPackages)
+O desenvolvimento do Snask continua focado em aprimorar a experiência do desenvolvedor:
 
-Cada módulo `.rs` deve exportar uma função `create_module()` que retorna um objeto com as funções do módulo.
+•
+String Interpolation: print("Olá {nome}")
 
----
+•
+Pattern Matching: Estruturas de controle avançadas.
 
-## 🗺️ Roadmap
+•
+Null Safety: Tipos opcionais (int?) para maior segurança.
 
-O futuro do Snask é brilhante! Próximas funcionalidades planejadas:
+•
+Formatter: Ferramenta snask fmt para padronização de código.
 
-- [ ] **String Interpolation**: `print("Olá {nome}")`
-- [ ] **Pattern Matching**: `match x { ... }`
-- [ ] **Null Safety**: Tipos opcionais `int?`
-- [ ] **Formatter**: `snask fmt`
-- [ ] **Gerenciador de Pacotes**: `snask install`
+📄 Licença
 
----
+Este projeto está licenciado sob a Licença MIT. Sinta-se à vontade para inspecionar, modificar e distribuir.
 
-## 📄 Licença
 
-Snask é open-source e distribuído sob a licença MIT. Divirta-se codando!
+
+
+Desenvolvido por Davivilasdev
+
